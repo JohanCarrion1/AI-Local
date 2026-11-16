@@ -61,7 +61,7 @@ android.entrypoint = org.kivy.android.PythonActivity
 android.arch = arm64-v8a,armeabi-v7a
 
 # (str) The bootstraps to build for, choices: sdl2_gradle, pygame_gradle, webview_gradle, service_only
-android.bootstrap = sdl2_gradle
+p4a.bootstrap = sdl2_gradle
 
 # (int) Android NDK API to use. This is the minimum API version you want to support
 android.ndk_api = 21
