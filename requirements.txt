@@ -52,5 +52,4 @@ httpx>=0.25.0
 # Optional: For TensorFlow models
 # tensorflow>=2.15.0
 
-# Optional: For Ollama integration
-# ollama>=0.1.0
+

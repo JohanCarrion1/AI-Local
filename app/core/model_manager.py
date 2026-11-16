@@ -1,17 +1,29 @@
 """
-AI-Local-Hub - Model Manager
-============================
-Handles downloading and managing AI models from various sources.
+AI-Local-Hub - Model Manager (Advanced Version)
+================================================
+Search and download models from HuggingFace Hub with advanced features.
 """
 
 import os
 import shutil
-import subprocess
-import requests
 from pathlib import Path
 from typing import Optional, Dict, Any, List
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
+
+from huggingface_hub import (
+    HfApi, 
+    HfFolder,
+    snapshot_download,
+    login,
+    whoami,
+    list_models,
+    ModelFilter,
+    ModelSearchArguments
+)
+from transformers import AutoConfig
 
 from app.utils.config import Config
 
@@ -23,30 +35,201 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ModelInfo:
-    """Information about a model."""
+    """Information about a model from HuggingFace Hub."""
+    id: str
     name: str
-    size: str
-    source: str
-    model_id: str
-    path: Path
-    type: str = "text"  # "text" or "multimodal"
-    vram_required: float = 0.0
-    downloaded: bool = False
+    author: str
+    description: str = ""
+    tags: List[str] = field(default_factory=list)
+    downloads: int = 0
+    likes: int = 0
+    size: str = "0 MB"
+    last_modified: str = ""
+    pipeline_tag: str = ""
+    framework: List[str] = field(default_factory=list)
+    task: str = ""
+    is_downloaded: bool = False
+    local_path: Optional[Path] = None
 
 
 class ModelManager:
-    """Manages downloading and organizing AI models."""
+    """Advanced model manager for searching and downloading from HuggingFace Hub."""
     
     def __init__(self):
         self.models_dir = Config.MODELS_DIR
         self.models_dir.mkdir(parents=True, exist_ok=True)
+        self._api = HfApi()
+        self._cached_models: Dict[str, ModelInfo] = {}
+    
+    def search_models(
+        self,
+        query: str = "",
+        task: str = None,
+        framework: str = None,
+        language: str = None,
+        sort_by: str = "downloads",
+        limit: int = 50,
+        pipeline_tag: str = None
+    ) -> List[ModelInfo]:
+        """
+        Search for models on HuggingFace Hub with advanced filters.
         
-        # Source handlers
-        self._source_handlers = {
-            "ollama": self._download_from_ollama,
-            "huggingface": self._download_from_huggingface,
-            "github": self._download_from_github,
-        }
+        Args:
+            query: Search query (model name, description, etc.)
+            task: Filter by task (text-generation, text-classification, etc.)
+            framework: Filter by framework (pytorch, tensorflow, etc.)
+            language: Filter by language
+            sort_by: Sort by (downloads, likes, last_modified)
+            limit: Maximum number of results
+            pipeline_tag: Filter by pipeline tag
+        
+        Returns:
+            List of ModelInfo objects
+        """
+        try:
+            # Build search arguments
+            search_args = ModelSearchArguments(
+                search=query,
+                filter=ModelFilter(
+                    task=task,
+                    framework=framework,
+                    language=language,
+                    pipeline_tag=pipeline_tag
+                )
+            )
+            
+            # Search models
+            models = list_models(
+                search=search_args,
+                sort=sort_by,
+                limit=limit
+            )
+            
+            # Convert to ModelInfo
+            results = []
+            for model in models:
+                try:
+                    model_info = ModelInfo(
+                        id=model.id,
+                        name=model.id.split("/")[-1] if "/" in model.id else model.id,
+                        author=model.id.split("/")[0] if "/" in model.id else "",
+                        description=model.description or "",
+                        tags=model.tags or [],
+                        downloads=model.downloads,
+                        likes=model.likes,
+                        size=self._format_size(model.sha) if hasattr(model, 'sha') else "Unknown",
+                        last_modified=model.lastModified or "",
+                        pipeline_tag=model.pipeline_tag or "",
+                        framework=model.framework or [],
+                        task=model.task or ""
+                    )
+                    results.append(model_info)
+                except Exception as e:
+                    logger.warning(f"Error processing model {model.id}: {e}")
+                    continue
+            
+            return results
+            
+        except Exception as e:
+            logger.error(f"Error searching models: {e}")
+            return []
+    
+    def get_model_info(self, model_id: str) -> Optional[ModelInfo]:
+        """Get detailed information about a specific model."""
+        try:
+            if model_id in self._cached_models:
+                return self._cached_models[model_id]
+            
+            model = self._api.model_info(model_id)
+            
+            model_info = ModelInfo(
+                id=model.id,
+                name=model.id.split("/")[-1] if "/" in model.id else model.id,
+                author=model.id.split("/")[0] if "/" in model.id else "",
+                description=model.cardData.get("description", "") if model.cardData else "",
+                tags=model.tags or [],
+                downloads=model.downloads,
+                likes=model.likes,
+                size=self._format_size(model.siblings[0].size) if model.siblings else "Unknown",
+                last_modified=model.lastModified or "",
+                pipeline_tag=model.pipeline_tag or "",
+                framework=model.framework or [],
+                task=model.task or ""
+            )
+            
+            self._cached_models[model_id] = model_info
+            return model_info
+            
+        except Exception as e:
+            logger.error(f"Error getting model info for {model_id}: {e}")
+            return None
+    
+    def download_model(
+        self,
+        model_id: str,
+        output_dir: Optional[Path] = None,
+        ignore_patterns: List[str] = None,
+        resume_download: bool = True
+    ) -> Optional[Path]:
+        """
+        Download a model from HuggingFace Hub.
+        
+        Args:
+            model_id: Model identifier (ej: "Qwen/Qwen2.5-Coder-7B")
+            output_dir: Output directory (defaults to models_dir/model_id)
+            ignore_patterns: Patterns to ignore during download
+            resume_download: Whether to resume partial downloads
+        
+        Returns:
+            Path to the downloaded model, or None if failed
+        """
+        try:
+            if output_dir is None:
+                output_dir = self.models_dir / model_id.replace("/", "--")
+            else:
+                output_dir = Path(output_dir)
+            
+            output_dir.mkdir(parents=True, exist_ok=True)
+            
+            logger.info(f"Downloading {model_id} to {output_dir}...")
+            
+            # Download with snapshot_download
+            snapshot_download(
+                repo_id=model_id,
+                local_dir=str(output_dir),
+                local_dir_use_symlinks=False,
+                ignore_patterns=ignore_patterns or ["*.msgpack", "*.h5", "*.tflite", "*.safetensors.index.json"],
+                resume_download=resume_download,
+                force_download=False
+            )
+            
+            logger.info(f"Successfully downloaded {model_id}")
+            return output_dir
+            
+        except Exception as e:
+            logger.error(f"Failed to download {model_id}: {e}")
+            return None
+    
+    def download_multiple_models(self, model_ids: List[str]) -> Dict[str, bool]:
+        """Download multiple models concurrently."""
+        results = {}
+        
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            future_to_model = {
+                executor.submit(self.download_model, model_id): model_id 
+                for model_id in model_ids
+            }
+            
+            for future in as_completed(future_to_model):
+                model_id = future_to_model[future]
+                try:
+                    result = future.result()
+                    results[model_id] = result is not None
+                except Exception as e:
+                    logger.error(f"Error downloading {model_id}: {e}")
+                    results[model_id] = False
+        
+        return results
     
     def list_local_models(self) -> List[ModelInfo]:
         """List all locally downloaded models."""
@@ -57,259 +240,210 @@ class ModelManager:
         
         for model_dir in self.models_dir.iterdir():
             if model_dir.is_dir():
-                # Check for model files
-                model_files = list(model_dir.glob("*"))
-                if model_files:
+                # Try to find model info
+                model_id = model_dir.name.replace("--", "/")
+                model_info = self.get_model_info(model_id)
+                
+                if model_info:
+                    model_info.is_downloaded = True
+                    model_info.local_path = model_dir
+                    models.append(model_info)
+                else:
+                    # Create basic info from directory
                     models.append(ModelInfo(
+                        id=model_id,
                         name=model_dir.name,
-                        size="Unknown",
-                        source="local",
-                        model_id=model_dir.name,
-                        path=model_dir,
-                        downloaded=True
+                        is_downloaded=True,
+                        local_path=model_dir
                     ))
         
         return models
     
-    def list_available_models(self, source: str = None) -> List[Dict[str, Any]]:
-        """List available models from all sources or a specific source."""
-        if source:
-            handler = self._source_handlers.get(source)
-            if handler:
-                return handler(list_only=True)
-            return []
-        
-        # Return all available models from all sources
-        all_models = []
-        for source_name in self._source_handlers:
-            try:
-                models = self._source_handlers[source_name](list_only=True)
-                if models:
-                    all_models.extend(models)
-            except Exception as e:
-                logger.warning(f"Failed to list models from {source_name}: {e}")
-        
-        return all_models
-    
-    def download_model(
-        self, 
-        model_id: str, 
-        source: str = "ollama",
-        output_dir: Optional[Path] = None
-    ) -> ModelInfo:
-        """Download a model from a specific source."""
-        if source not in self._source_handlers:
-            raise ValueError(f"Unsupported source: {source}. Supported: {self._source_handlers.keys()}")
-        
-        handler = self._source_handlers[source]
-        
-        if output_dir is None:
-            output_dir = self.models_dir / source / model_id
-        else:
-            output_dir = Path(output_dir)
-        
-        output_dir.mkdir(parents=True, exist_ok=True)
-        
-        logger.info(f"Downloading {model_id} from {source}...")
-        
-        try:
-            model_info = handler(model_id, output_dir)
-            logger.info(f"Successfully downloaded {model_id} to {output_dir}")
-            return model_info
-        except Exception as e:
-            logger.error(f"Failed to download {model_id}: {e}")
-            raise
-    
-    def _download_from_ollama(
-        self, 
-        model_id: str, 
-        output_dir: Path = None,
-        list_only: bool = False
-    ) -> Optional[ModelInfo]:
-        """Download model using Ollama."""
-        if list_only:
-            # For now, return a list of popular Ollama models
-            return [
-                {"name": "Qwen3 8B", "size": "8B", "source": "ollama", "id": "qwen3:8b", "type": "text", "vram": 6},
-                {"name": "Qwen3 27B", "size": "27B", "source": "ollama", "id": "qwen3:27b", "type": "text", "vram": 24},
-                {"name": "Phi-3.5-mini", "size": "3.8B", "source": "ollama", "id": "phi3.5:mini", "type": "text", "vram": 3},
-                {"name": "Llama 3.2 7B", "size": "7B", "source": "ollama", "id": "llama3.2:7b", "type": "text", "vram": 6},
-            ]
-        
-        # Check if Ollama is installed
-        try:
-            result = subprocess.run(["ollama", "--version"], capture_output=True)
-            if result.returncode != 0:
-                raise RuntimeError("Ollama is not installed. Please install Ollama first.")
-        except FileNotFoundError:
-            raise RuntimeError("Ollama is not installed. Please install Ollama first.")
-        
-        # Pull the model
-        result = subprocess.run(
-            ["ollama", "pull", model_id],
-            capture_output=True,
-            text=True
-        )
-        
-        if result.returncode != 0:
-            raise RuntimeError(f"Failed to pull model: {result.stderr}")
-        
-        # Get model path (Ollama stores models in ~/.ollama/models)
-        ollama_models_dir = Path.home() / ".ollama" / "models"
-        model_path = ollama_models_dir / model_id.replace("/", "--")
-        
-        if not model_path.exists():
-            # Try to find the model
-            for model_dir in ollama_models_dir.glob("*"):
-                if model_id.replace("/", "--") in model_dir.name or model_id in model_dir.name:
-                    model_path = model_dir
-                    break
-        
-        # Copy to our models directory
-        if output_dir and model_path.exists():
-            shutil.copytree(model_path, output_dir, dirs_exist_ok=True)
-        
-        return ModelInfo(
-            name=model_id,
-            size="Unknown",
-            source="ollama",
-            model_id=model_id,
-            path=output_dir or model_path,
-            downloaded=True
-        )
-    
-    def _download_from_huggingface(
-        self,
-        model_id: str,
-        output_dir: Path = None,
-        list_only: bool = False
-    ) -> Optional[ModelInfo]:
-        """Download model from HuggingFace Hub."""
-        if list_only:
-            # Return popular models from HuggingFace
-            return [
-                {"name": "Qwen2.5-Coder-7B", "size": "7B", "source": "huggingface", "id": "Qwen/Qwen2.5-Coder-7B", "type": "text", "vram": 5},
-                {"name": "Qwen2.5-VL-7B", "size": "7B", "source": "huggingface", "id": "Qwen/Qwen2.5-VL-7B", "type": "multimodal", "vram": 8},
-                {"name": "DeepSeek-Coder-7B", "size": "7B", "source": "huggingface", "id": "deepseek-ai/DeepSeek-Coder-7B", "type": "text", "vram": 5},
-                {"name": "MobileVLM-7B", "size": "7B", "source": "huggingface", "id": "VisualGLM/MobileVLM-7B", "type": "multimodal", "vram": 5},
-                {"name": "PaliGemma-3B", "size": "3B", "source": "huggingface", "id": "google/paligemma-3b-mix-224", "type": "multimodal", "vram": 4},
-            ]
-        
-        try:
-            from huggingface_hub import snapshot_download, HfApi
-        except ImportError:
-            raise RuntimeError("huggingface_hub is not installed. Run: pip install huggingface_hub")
-        
-        # Check if model exists
-        try:
-            api = HfApi()
-            model_info = api.model_info(model_id)
-        except Exception as e:
-            raise ValueError(f"Model {model_id} not found on HuggingFace: {e}")
-        
-        # Download the model
-        logger.info(f"Downloading {model_id} from HuggingFace...")
-        
-        snapshot_download(
-            repo_id=model_id,
-            local_dir=str(output_dir),
-            local_dir_use_symlinks=False,
-            ignore_patterns=["*.msgpack", "*.h5", "*.tflite", "*.safetensors.index.json"],
-        )
-        
-        return ModelInfo(
-            name=model_id.split("/")[-1],
-            size=f"{model_info.siblings[0].size / (1024**3):.2f} GB" if model_info.siblings else "Unknown",
-            source="huggingface",
-            model_id=model_id,
-            path=output_dir,
-            downloaded=True
-        )
-    
-    def _download_from_github(
-        self,
-        repo: str,
-        output_dir: Path = None,
-        list_only: bool = False,
-        branch: str = "main"
-    ) -> Optional[ModelInfo]:
-        """Download model from a GitHub repository."""
-        if list_only:
-            # For now, return empty list (GitHub repos are dynamic)
-            return []
-        
-        try:
-            import git
-        except ImportError:
-            raise RuntimeError("GitPython is not installed. Run: pip install gitpython")
-        
-        # Get GitHub token
-        from app.core.github_connector import GitHubConnector
-        token = GitHubConnector.get_token()
-        
-        # Clone the repository
-        repo_url = f"https://github.com/{repo}.git"
-        
-        logger.info(f"Cloning {repo} (branch: {branch})...")
-        
-        try:
-            if token:
-                repo_url = f"https://{token}@github.com/{repo}.git"
-            
-            git.Repo.clone_from(
-                repo_url,
-                to_path=str(output_dir),
-                branch=branch,
-                depth=1
-            )
-        except Exception as e:
-            raise RuntimeError(f"Failed to clone repository: {e}")
-        
-        return ModelInfo(
-            name=repo.split("/")[-1],
-            size="Unknown",
-            source="github",
-            model_id=repo,
-            path=output_dir,
-            downloaded=True
-        )
-    
-    def delete_model(self, model_id: str, source: str = None) -> bool:
+    def delete_model(self, model_id: str) -> bool:
         """Delete a downloaded model."""
-        if source:
-            model_path = self.models_dir / source / model_id
-        else:
-            # Search for the model in all sources
-            model_path = None
-            for source_dir in self.models_dir.iterdir():
-                if source_dir.is_dir():
-                    potential_path = source_dir / model_id
-                    if potential_path.exists():
-                        model_path = potential_path
-                        break
-        
-        if model_path and model_path.exists():
-            shutil.rmtree(model_path)
-            logger.info(f"Deleted model: {model_id}")
-            return True
-        
-        logger.warning(f"Model {model_id} not found")
-        return False
+        try:
+            # Find the model directory
+            model_path = self.models_dir / model_id.replace("/", "--")
+            
+            if model_path.exists():
+                shutil.rmtree(model_path)
+                logger.info(f"Deleted model: {model_id}")
+                
+                # Remove from cache
+                if model_id in self._cached_models:
+                    del self._cached_models[model_id]
+                
+                return True
+            
+            # Try to find by name
+            for model_dir in self.models_dir.iterdir():
+                if model_dir.is_dir() and model_id in str(model_dir):
+                    shutil.rmtree(model_dir)
+                    logger.info(f"Deleted model: {model_id}")
+                    return True
+            
+            logger.warning(f"Model {model_id} not found")
+            return False
+            
+        except Exception as e:
+            logger.error(f"Error deleting model {model_id}: {e}")
+            return False
     
-    def get_model_info(self, model_id: str, source: str = None) -> Optional[ModelInfo]:
-        """Get information about a specific model."""
-        models = self.list_local_models()
-        for model in models:
-            if model.model_id == model_id or model.name == model_id:
-                return model
-        return None
+    def get_popular_models(self, task: str = None, limit: int = 20) -> List[ModelInfo]:
+        """Get popular models, optionally filtered by task."""
+        try:
+            if task:
+                models = list_models(
+                    filter=ModelFilter(task=task),
+                    sort="downloads",
+                    limit=limit
+                )
+            else:
+                models = list_models(
+                    sort="downloads",
+                    limit=limit
+                )
+            
+            return [
+                ModelInfo(
+                    id=m.id,
+                    name=m.id.split("/")[-1],
+                    author=m.id.split("/")[0] if "/" in m.id else "",
+                    description=m.description or "",
+                    downloads=m.downloads,
+                    likes=m.likes
+                )
+                for m in models
+            ]
+        except Exception as e:
+            logger.error(f"Error getting popular models: {e}")
+            return []
     
-    def search_models(self, query: str, source: str = None) -> List[Dict[str, Any]]:
-        """Search for models by name."""
-        available_models = self.list_available_models(source)
+    def get_recent_models(self, limit: int = 20) -> List[ModelInfo]:
+        """Get recently updated models."""
+        try:
+            models = list_models(
+                sort="last_modified",
+                limit=limit
+            )
+            
+            return [
+                ModelInfo(
+                    id=m.id,
+                    name=m.id.split("/")[-1],
+                    author=m.id.split("/")[0] if "/" in m.id else "",
+                    description=m.description or "",
+                    last_modified=m.lastModified or ""
+                )
+                for m in models
+            ]
+        except Exception as e:
+            logger.error(f"Error getting recent models: {e}")
+            return []
+    
+    def search_by_capability(self, capability: str, limit: int = 20) -> List[ModelInfo]:
+        """Search models by capability (task)."""
+        return self.search_models(task=capability, limit=limit)
+    
+    def _format_size(self, size_bytes: int) -> str:
+        """Format size in bytes to human readable."""
+        for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+            if size_bytes < 1024.0:
+                return f"{size_bytes:.1f} {unit}"
+            size_bytes /= 1024.0
+        return f"{size_bytes:.1f} PB"
+    
+    def get_model_config(self, model_path: Path) -> Optional[Dict[str, Any]]:
+        """Get model configuration."""
+        try:
+            config = AutoConfig.from_pretrained(str(model_path))
+            return config.to_dict()
+        except Exception as e:
+            logger.error(f"Error getting model config: {e}")
+            return None
+    
+    def check_model_compatibility(self, model_id: str) -> Dict[str, Any]:
+        """Check if a model is compatible with the current system."""
+        from app.core.resource_detector import ResourceDetector
         
-        return [
-            m for m in available_models 
-            if query.lower() in m.get("name", "").lower() or 
-               query.lower() in m.get("id", "").lower()
-        ]
+        specs = ResourceDetector.detect()
+        model_info = self.get_model_info(model_id)
+        
+        if not model_info:
+            return {"compatible": False, "reason": "Model not found"}
+        
+        # Check disk space
+        try:
+            model_size = self._get_model_size(model_id)
+            disk_free = shutil.disk_usage(self.models_dir).free
+            
+            if model_size > disk_free:
+                return {
+                    "compatible": False,
+                    "reason": f"Not enough disk space. Need {self._format_size(model_size)}, have {self._format_size(disk_free)}"
+                }
+        except Exception:
+            pass
+        
+        # Check RAM
+        if specs.ram_total_gb < 4:
+            return {
+                "compatible": False,
+                "reason": f"Not enough RAM. Have {specs.ram_total_gb:.1f} GB, need at least 4 GB"
+            }
+        
+        return {"compatible": True, "reason": "Model is compatible"}
+    
+    def _get_model_size(self, model_id: str) -> int:
+        """Get model size in bytes."""
+        try:
+            model = self._api.model_info(model_id)
+            if model.siblings:
+                return sum(s.size for s in model.siblings)
+            return 0
+        except Exception:
+            return 0
+    
+    def get_suggested_models(self, task: str = None) -> List[ModelInfo]:
+        """Get suggested models based on task."""
+        # Common tasks and their popular models
+        task_models = {
+            "text-generation": [
+                "Qwen/Qwen2.5-7B-Instruct",
+                "Qwen/Qwen2.5-Coder-7B",
+                "deepseek-ai/DeepSeek-Coder-7B",
+                "phi-3.5-mini-instruct",
+                "llama3.2-7b-instruct"
+            ],
+            "text-classification": [
+                "distilbert-base-uncased",
+                "bert-base-uncased",
+                "Qwen/Qwen2.5-7B"
+            ],
+            "text2text-generation": [
+                "t5-small",
+                "t5-base",
+                "facebook/bart-base"
+            ],
+            "image-classification": [
+                "google/vit-base-patch16-224",
+                "microsoft/resnet-50",
+                "convnext-tiny"
+            ],
+            "image-to-text": [
+                "Qwen/Qwen2.5-VL-7B",
+                "PaliGemma/paligemma-3b-mix-224",
+                "llava-hf/llava-1.5-7b-hf"
+            ],
+            "automatic-speech-recognition": [
+                "facebook/wav2vec2-base-960h",
+                "openai/whisper-tiny",
+                "openai/whisper-base"
+            ]
+        }
+        
+        if task and task in task_models:
+            return [self.get_model_info(mid) for mid in task_models[task] if self.get_model_info(mid)]
+        
+        # Return popular models for text generation by default
+        return [self.get_model_info(mid) for mid in task_models.get("text-generation", []) if self.get_model_info(mid)]
