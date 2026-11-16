@@ -60,6 +60,12 @@ p4a.bootstrap = sdl2_gradle
 # (int) Android NDK API to use. This is the minimum API version you want to support
 android.ndk_api = 21
 
+# (str) Android SDK path
+#android.sdk_path = /home/runner/android-sdk
+
+# (str) Android NDK path
+#android.ndk_path = /home/runner/android-sdk/android-ndk-r23b
+
 
 [buildozer]
 

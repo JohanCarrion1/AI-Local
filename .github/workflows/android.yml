@@ -22,17 +22,15 @@ jobs:
       with:
         python-version: '3.11'
     
-    - name: Cache Android SDK and NDK
+    - name: Cache Buildozer
       uses: actions/cache@v3
-      id: android-cache
       with:
         path: |
-          ~/.android
           ~/.buildozer
           ~/.cache
-        key: android-sdk-ndk-${{ hashFiles('buildozer.spec') }}
+        key: buildozer-${{ hashFiles('buildozer.spec') }}
         restore-keys: |
-          android-sdk-ndk-
+          buildozer-
     
     - name: Install dependencies
       run: |
@@ -65,7 +63,7 @@ jobs:
         echo "count=0" > ~/.android/repositories.cfg
         yes | sdkmanager --licenses > /dev/null 2>&1 || true
         
-        # Install packages (only what we need)
+        # Install packages
         sdkmanager --install "platform-tools" > /dev/null 2>&1 || true
         sdkmanager --install "platforms;android-30" > /dev/null 2>&1 || true
         sdkmanager --install "build-tools;30.0.3" > /dev/null 2>&1 || true
@@ -81,9 +79,8 @@ jobs:
       run: |
         cd $GITHUB_WORKSPACE
         
-        # Build with verbose output
-        buildozer -v android debug
-      continue-on-error: true
+        # Build with limited output
+        buildozer android debug 2>&1 | tail -50
       timeout-minutes: 150
       env:
         BUILDOZER_WARN_ON_ROOT: 0
@@ -96,10 +93,10 @@ jobs:
         path: bin/*.apk
         retention-days: 30
     
-    - name: Clean up
+    - name: Upload build directory
       if: always()
-      run: |
-        rm -rf ~/android-sdk
-        rm -rf ~/.android
-        rm -rf ~/.buildozer
-        rm -rf ~/.cache
+      uses: actions/upload-artifact@v4
+      with:
+        name: buildozer-build
+        path: .buildozer/
+        retention-days: 7
