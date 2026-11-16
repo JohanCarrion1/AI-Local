@@ -22,6 +22,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install pytest psutil gitpython requests keyring PyGithub
+        pip install streamlit
         pip install huggingface_hub transformers accelerate Pillow opencv-python pydantic pydantic-settings anyio httpx
     
     - name: Check core imports
@@ -80,4 +81,4 @@ jobs:
     
     steps:
     - name: All checks passed
-      run: echo "✅ All CI/CD checks passed successfully!"
+      run: echo "\u2705 All CI/CD checks passed successfully!"
