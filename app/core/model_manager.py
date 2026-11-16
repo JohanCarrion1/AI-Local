@@ -17,10 +17,8 @@ from huggingface_hub import (
     snapshot_download,
     login,
     whoami,
-    list_models,
-    ModelFilter,
-    ModelSearchArguments,
-    model_info
+    model_info,
+    HfApi
 )
 from transformers import AutoConfig
 
@@ -85,28 +83,42 @@ class ModelManager:
             List of ModelInfo objects
         """
         try:
-            # Build search arguments
-            search_args = ModelSearchArguments(
-                search=query,
-                filter=ModelFilter(
-                    task=task,
-                    framework=framework,
-                    language=language,
-                    pipeline_tag=pipeline_tag
-                )
-            )
+            api = HfApi()
+            
+            # Build filter string from parameters
+            filters = []
+            if task:
+                filters.append(f"task:{task}")
+            if framework:
+                filters.append(f"library:{framework}")
+            if language:
+                filters.append(f"language:{language}")
+            if pipeline_tag:
+                filters.append(f"pipeline_tag:{pipeline_tag}")
             
             # Search models
-            models = list_models(
-                search=search_args,
+            models = api.list_models(
+                filter=filters if filters else None,
+                search=query if query else None,
                 sort=sort_by,
-                limit=limit
+                limit=limit,
+                full=True
             )
             
             # Convert to ModelInfo
             results = []
             for model in models:
                 try:
+                    # Extract framework from tags or library_name
+                    model_framework = []
+                    if hasattr(model, 'library_name') and model.library_name:
+                        model_framework.append(model.library_name)
+                    
+                    # Extract task from tags or pipeline_tag
+                    model_task = ""
+                    if hasattr(model, 'pipeline_tag') and model.pipeline_tag:
+                        model_task = model.pipeline_tag
+                    
                     model_info = ModelInfo(
                         id=model.id,
                         name=model.id.split("/")[-1] if "/" in model.id else model.id,
@@ -118,8 +130,8 @@ class ModelManager:
                         size=self._format_size(model.sha) if hasattr(model, 'sha') else "Unknown",
                         last_modified=model.lastModified or "",
                         pipeline_tag=model.pipeline_tag or "",
-                        framework=model.framework or [],
-                        task=model.task or ""
+                        framework=model_framework,
+                        task=model_task
                     )
                     results.append(model_info)
                 except Exception as e:
@@ -138,9 +150,28 @@ class ModelManager:
             if model_id in self._cached_models:
                 return self._cached_models[model_id]
             
-            model = model_info(model_id)
+            model = model_info(model_id, token=True)
             
-            model_info = ModelInfo(
+            # Extract framework
+            model_framework = []
+            if hasattr(model, 'library_name') and model.library_name:
+                model_framework.append(model.library_name)
+            if hasattr(model, 'transformersInfo') and model.transformersInfo:
+                for ti in model.transformersInfo:
+                    if hasattr(ti, 'library_name'):
+                        model_framework.append(ti.library_name)
+            
+            # Extract task
+            model_task = ""
+            if hasattr(model, 'pipeline_tag') and model.pipeline_tag:
+                model_task = model.pipeline_tag
+            
+            # Get size from siblings
+            model_size = "Unknown"
+            if hasattr(model, 'siblings') and model.siblings:
+                model_size = self._format_size(model.siblings[0].size)
+            
+            model_info_obj = ModelInfo(
                 id=model.id,
                 name=model.id.split("/")[-1] if "/" in model.id else model.id,
                 author=model.id.split("/")[0] if "/" in model.id else "",
@@ -148,15 +179,15 @@ class ModelManager:
                 tags=model.tags or [],
                 downloads=model.downloads,
                 likes=model.likes,
-                size=self._format_size(model.siblings[0].size) if model.siblings else "Unknown",
+                size=model_size,
                 last_modified=model.lastModified or "",
                 pipeline_tag=model.pipeline_tag or "",
-                framework=model.framework or [],
-                task=model.task or ""
+                framework=model_framework,
+                task=model_task
             )
             
-            self._cached_models[model_id] = model_info
-            return model_info
+            self._cached_models[model_id] = model_info_obj
+            return model_info_obj
             
         except Exception as e:
             logger.error(f"Error getting model info for {model_id}: {e}")
