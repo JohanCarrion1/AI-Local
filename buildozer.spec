@@ -65,3 +65,9 @@ android.bootstrap = sdl2_gradle
 
 # (int) Android NDK API to use. This is the minimum API version you want to support
 android.ndk_api = 21
+
+
+[buildozer]
+
+# (int) Log level (0 = error only, 1 = info, 2 = debug (with command output))
+log_level = 2
