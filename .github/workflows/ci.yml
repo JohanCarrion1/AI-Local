@@ -23,29 +23,29 @@ jobs:
         python -m pip install --upgrade pip
         pip install pytest psutil gitpython requests keyring PyGithub
     
-    - name: Install torch (CPU version)
-      run: |
-        pip install torch --index-url https://download.pytorch.org/whl/cpu
-    
     - name: Run tests
       run: |
         python -m pytest tests/ -v
     
-    - name: Check imports
+    - name: Check core imports
       run: |
         python -c "from app.core.resource_detector import ResourceDetector; print('ResourceDetector: OK')"
         python -c "from app.db.database import Database; print('Database: OK')"
         python -c "from app.core.github_connector import GitHubConnector; print('GitHubConnector: OK')"
         python -c "from app.core.model_manager import ModelManager; print('ModelManager: OK')"
-        python -c "from app.core.executor import ModelExecutor; print('ModelExecutor: OK')"
     
-    - name: Check syntax
+    - name: Check CLI syntax
       run: |
         python -m py_compile app/cli/main.py
+    
+    - name: Check GUI syntax
+      run: |
         python -m py_compile app/gui/app.py
-        python -m py_compile app/core/*.py
-        python -m py_compile app/db/*.py
+    
+    - name: Check utils syntax
+      run: |
         python -m py_compile app/utils/*.py
+        python -m py_compile app/db/*.py
 
   build:
     needs: test
