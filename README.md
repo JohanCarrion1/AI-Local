@@ -1,235 +1,202 @@
-# AI-Local-Hub 🤖📱
+# AI-Local Gallery
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![GitHub Stars](https://img.shields.io/github/stars/JohanCarrion1/AI-Local?style=social)](https://github.com/JohanCarrion1/AI-Local/stargazers)
-[![Issues](https://img.shields.io/github/issues/JohanCarrion1/AI-Local)](https://github.com/JohanCarrion1/AI-Local/issues)
+![AI-Local Gallery Icon](assets/icon/icon.svg)
 
-**Aplicación local para gestionar, descargar y ejecutar modelos de IA (código + visión) adaptada a los recursos de tu dispositivo.**
+**AI-Local Gallery** es una aplicación para administrar modelos de IA de forma 100% local. Permite buscar, descargar y ejecutar modelos de HuggingFace Hub directamente en tu dispositivo sin necesidad de servidores externos.
 
----
+## 📱 Características
 
-## 🎯 Características
-
-✅ **Descarga automática de modelos** (HuggingFace, GitHub)
-✅ **Detección de recursos** (RAM, VRAM, SO) para recomendar modelos compatibles
-✅ **Soporte para móvil** (Termux en Android) y escritorio
-✅ **Interfaz CLI y GUI** (Streamlit)
-✅ **Integración con GitHub** (vía token para repositorios privados)
-✅ **Ejecución local 100%** (sin dependencias de cloud)
-✅ **Modelos optimizados** para 4B-7B (móvil) y 14B+-72B (PC)
-
----
-
-## 📱 Compatibilidad con Dispositivos
-
-| **Dispositivo**       | **RAM/VRAM** | **Modelos Recomendados**                          | **Herramienta**       |
-|------------------------|--------------|--------------------------------------------------|------------------------|
-| **Móvil (A36)**        | 4-6GB        | Qwen3 8B (Q4), Phi-3.5-mini, MobileVLM-7B        | Termux + Ollama       |
-| **PC (16GB RAM)**      | 16GB         | Qwen3.8-27B, Qwen2.5-VL-7B, DeepSeek-Coder-7B     | Ollama / Local        |
-| **PC (24GB+ RAM)**     | 24GB+        | Qwen3.8-27B, Qwen2.5-VL-32B, Llama 3.2 70B       | Ollama / Local        |
-| **PC (48GB+ RAM)**     | 48GB+        | Qwen3-Coder-480B, Qwen2.5-VL-72B, Kimi-Dev-72B   | Ollama / Local        |
-
----
+- ✅ **Búsqueda dinámica**: Busca TODOS los modelos disponibles en HuggingFace Hub
+- ✅ **Descarga con un clic**: Descarga modelos directamente desde la aplicación
+- ✅ **Ejecución local**: Ejecuta modelos sin servidores (sin Ollama)
+- ✅ **Soporte móvil**: Funciona en Android (Termux) y PC
+- ✅ **Interfaz profesional**: Diseño tipo Google AI Gallery
+- ✅ **Detección de recursos**: Recomienda modelos compatibles con tu dispositivo
+- ✅ **Integración GitHub**: Conéctate con token para repositorios privados
 
 ## 🚀 Instalación
 
-### 📱 En Android (Termux)
+### Para Android (APK)
 
-1. **Instalar Termux y Termux:PR** (desde F-Droid)
-2. **Actualizar paquetes:**
+1. **Requisitos**:
+   - Android 7.0+ (API 24+)
+   - Buildozer
+   - Python 3.8+
+
+2. **Compilar la APK**:
+   ```bash
+   # Instalar Buildozer
+   pip install buildozer
+   
+   # Inicializar Buildozer
+   buildozer init
+   
+   # Compilar APK (esto puede tardar 1-2 horas)
+   buildozer -v android debug
+   
+   # La APK se generará en: bin/
+   ```
+
+3. **Instalar la APK**:
+   - Copia el archivo `bin/AI-Local-Gallery-1.0.0-debug.apk` a tu Android
+   - Instálalo como cualquier otra APK
+
+### Para PC (Desktop)
+
+1. **Clonar el repositorio**:
+   ```bash
+   git clone https://github.com/JohanCarrion1/AI-Local.git
+   cd AI-Local
+   ```
+
+2. **Instalar dependencias**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Ejecutar la aplicación**:
+   ```bash
+   # Opción 1: Usar el script principal (detecta plataforma automáticamente)
+   python main.py
+   
+   # Opción 2: Ejecutar Streamlit directamente
+   streamlit run app/gui/app.py
+   ```
+
+### Para Termux (Android)
+
+1. **Actualizar paquetes**:
    ```bash
    pkg update && pkg upgrade
-   pkg install git python python-pip
-   pip install --upgrade pip
    ```
-3. **Instalar Ollama (para modelos):**
+
+2. **Instalar dependencias**:
    ```bash
-   pkg install wget
-   wget https://ollama.ai/install.sh
-   bash install.sh
-   ```
-4. **Clonar el repositorio:**
-   ```bash
-   git clone https://github.com/JohanCarrion1/AI-Local
-   cd AI-Local
+   pkg install python git
    pip install -r requirements.txt
    ```
 
-### 💻 En PC (Linux/Mac/Windows)
-
-1. **Clonar el repositorio:**
+3. **Ejecutar**:
    ```bash
-   git clone https://github.com/JohanCarrion1/AI-Local
-   cd AI-Local
-   ```
-2. **Crear entorno virtual:**
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # Linux/Mac
-   .\venv\Scripts\activate   # Windows
-   ```
-3. **Instalar dependencias:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-4. **Opcional: Instalar Ollama (para gestión de modelos):**
-   - [Descargar Ollama](https://ollama.ai)
-
----
-
-## 🛠️ Uso
-
-### 🔹 CLI (Interfaz de Línea de Comandos)
-
-```bash
-# Ver ayuda
-python -m app.cli.main --help
-
-# Detectar recursos del dispositivo
-python -m app.cli.main detect
-
-# Listar modelos compatibles
-python -m app.cli.main models --list
-
-# Descargar modelo (ej: Qwen3 8B)
-python -m app.cli.main download --model=qwen3:8b --source=ollama
-
-# Descargar desde HuggingFace
-python -m app.cli.main download --model=Qwen/Qwen3-Coder-7B --source=huggingface
-
-# Descargar desde GitHub (con token)
-python -m app.cli.main github connect --token=ghp_xxxxx
-python -m app.cli.main download --repo=user/model-repo --source=github
-
-# Ejecutar inferencia
-python -m app.cli.main run --model=qwen3:8b --prompt="Explica qué es Python"
-
-# Listar modelos descargados
-python -m app.cli.main models --local
-```
-
-### 🎨 GUI (Interfaz Gráfica con Streamlit)
-
-```bash
-# Iniciar la interfaz web
-streamlit run app/gui/app.py
-```
-
-Abre tu navegador en `http://localhost:8501`
-
----
-
-## 📦 Modelos Soportados
-
-### 🔥 Para Programación (Código)
-
-| Modelo | Tamaño | VRAM Mínima | Descarga | Recomendado para |
-|--------|--------|-------------|----------|------------------|
-| Qwen3 8B | 8B | 6GB | `ollama run qwen3:8b` | Móvil/PC |
-| Qwen2.5-Coder-7B | 7B | 5GB | [HF](https://huggingface.co/Qwen/Qwen2.5-Coder-7B) | Móvil |
-| DeepSeek-Coder-7B | 7B | 5GB | [HF](https://huggingface.co/deepseek-ai/DeepSeek-Coder-7B) | Móvil |
-| Phi-3.5-mini | 3.8B | 3GB | `ollama run phi3.5:mini` | Móvil |
-| Qwen3.8-27B | 27B | 24GB | `ollama run qwen3:27b` | PC |
-| Qwen3-Coder-480B | 480B | 80GB+ | [HF](https://huggingface.co/Qwen) | Servidor |
-
-### 🖼️ Multimodales (Imágenes + Texto)
-
-| Modelo | Tamaño | VRAM Mínima | Descarga | Recomendado para |
-|--------|--------|-------------|----------|------------------|
-| MobileVLM-7B | 7B | 5GB | [HF](https://huggingface.co/VisualGLM/MobileVLM-7B) | **Móvil (A36)** |
-| PaliGemma-3B | 3B | 4GB | [HF](https://huggingface.co/google/paligemma-3b-mix-224) | Móvil |
-| Qwen2.5-VL-7B | 7B | 8GB | [HF](https://huggingface.co/Qwen/Qwen2.5-VL-7B) | PC |
-| Qwen2.5-VL-32B | 32B | 24GB | [HF](https://huggingface.co/Qwen/Qwen2.5-VL-32B) | PC |
-
----
-
-## 🔐 Configuración de GitHub Token
-
-1. **Generar un Personal Access Token (PAT) en GitHub:**
-   - Ve a [Settings > Developer Settings > Personal Access Tokens](https://github.com/settings/tokens)
-   - Crea un token con scopes: `repo`, `read:org`
-   - Copia el token (ej: `ghp_xxxxxxxxxxxxxxxxxxx`)
-
-2. **Guardar el token en la app:**
-   ```bash
-   python -m app.cli.main github connect --token=ghp_xxxxx
-   ```
-   *(El token se guardará encriptado en tu sistema)*
-
-3. **Clonar repositorios privados:**
-   ```bash
-   python -m app.cli.main download --repo=usuario/repo-privado --source=github
+   python main.py
    ```
 
----
-
-## 📂 Estructura del Proyecto
+## 📁 Estructura del Proyecto
 
 ```
 AI-Local/
 ├── app/
-│   ├── cli/
-│   │   └── main.py          # Interfaz CLI
-│   ├── gui/
-│   │   └── app.py           # Interfaz GUI (Streamlit)
+│   ├── __init__.py
 │   ├── core/
-│   │   ├── model_manager.py # Gestor de descargas
-│   │   ├── executor.py      # Ejecutor de modelos
-│   │   ├── github_connector.py # Integración GitHub
-│   │   └── resource_detector.py # Detección de hardware
-│   ├── db/
-│   │   └── database.py      # Base de datos SQLite
-│   └── utils/
-│       ├── security.py      # Manejo de tokens
-│       └── config.py        # Configuraciones
-├── models/                  # Modelos descargados (en .gitignore)
+│   │   ├── __init__.py
+│   │   ├── model_manager.py      # Búsqueda y descarga de modelos
+│   │   ├── executor.py           # Ejecución de modelos
+│   │   ├── github_connector.py  # Conexión con GitHub
+│   │   └── resource_detector.py # Detección de recursos
+│   ├── gui/
+│   │   ├── __init__.py
+│   │   └── app.py                # Interfaz Streamlit (Desktop)
+│   ├── mobile/
+│   │   ├── __init__.py
+│   │   └── main.py              # Interfaz Kivy (Mobile)
+│   └── db/
+│       ├── __init__.py
+│       └── database.py           # Base de datos SQLite
 ├── assets/
-│   ├── icon/
-│   │   ├── icon.svg         # Icono del proyecto
-│   │   └── icon.png
-│   └── screenshots/
-├── docs/
-│   ├── setup.md            # Guía de instalación
-│   └── models.md            # Lista detallada de modelos
+│   └── icon/
+│       └── icon.svg             # Icono de la aplicación
+├── main.py                      # Punto de entrada principal
+├── buildozer.spec               # Configuración para Buildozer
+├── requirements.txt             # Dependencias Python
 ├── .github/
 │   └── workflows/
-│       └── ci.yml           # Integración continua
-├── requirements.txt
-├── pyproject.toml
-├── LICENSE
+│       └── ci.yml               # CI/CD Pipeline
 └── README.md
 ```
 
----
+## 🎨 Interfaz de Usuario
+
+### Desktop (Streamlit)
+- **Página de Galería**: Busca modelos con filtros por tarea, framework, lenguaje
+- **Mis Modelos**: Lista de modelos descargados
+- **Ejecutar**: Interfaz para ejecutar modelos con prompts
+- **GitHub**: Conexión con token y navegación de repositorios
+- **Configuración**: Información del sistema y limpieza
+
+### Mobile (Kivy)
+- **Pantalla de Galería**: Tarjetas de modelos con botones de descarga y ejecución
+- **Mis Modelos**: Modelos descargados localmente
+- **Ejecutar**: Interfaz para interactuar con modelos
+- **Configuración**: Información del dispositivo
+
+## 🔧 Configuración
+
+### Token de HuggingFace
+Para descargar modelos privados, configura tu token:
+```python
+from huggingface_hub import login
+login(token="tu_token_aqui")
+```
+
+### Token de GitHub
+Para acceder a repositorios privados:
+```python
+from app.core.github_connector import GitHubConnector
+github = GitHubConnector(token="tu_github_token")
+```
+
+## 📦 Dependencias
+
+Las dependencias principales incluyen:
+- `huggingface_hub`: Para buscar y descargar modelos
+- `transformers`: Para cargar y ejecutar modelos
+- `torch`: Backend para modelos PyTorch
+- `streamlit`: Interfaz web para desktop
+- `kivy`: Interfaz nativa para móvil
+- `psutil`: Detección de recursos del sistema
+- `sqlite3`: Base de datos local
+
+## 🤖 Modelos Recomendados
+
+### Para dispositivos con 4-6GB RAM (como Samsung A36):
+- `TinyLlama/TinyLlama-1.1B`
+- `Qwen/Qwen2.5-Coder-0.5B`
+- `distilbert-base-uncased`
+- `google/mobilebert-uncased`
+
+### Para dispositivos con 8GB+ RAM:
+- `Qwen/Qwen2.5-Coder-1.5B`
+- `Qwen/Qwen2.5-Coder-3B`
+- `mistralai/Mistral-7B` (requiere ~14GB RAM)
+
+## 📊 Detección de Recursos
+
+La aplicación detecta automáticamente:
+- Tipo de dispositivo (móvil/PC)
+- RAM disponible
+- Almacenamiento disponible
+- GPU disponible (si hay)
+
+Y recomienda modelos compatibles con tus recursos.
+
+## 🔒 Privacidad
+
+- Todos los modelos se descargan y ejecutan localmente
+- No se envía información a servidores externos
+- Los tokens se guardan localmente de forma segura
 
 ## 📜 Licencia
 
-Este proyecto está bajo la **Licencia MIT** - mira el archivo [LICENSE](LICENSE) para más detalles.
+MIT License - © 2024 JohanCarrion1
+
+## 🤝 Contribuciones
+
+Las contribuciones son bienvenidas. Por favor abre un Issue o Pull Request en GitHub.
+
+## 📞 Soporte
+
+Si tienes problemas o preguntas, abre un Issue en el repositorio de GitHub.
 
 ---
 
-## 🤝 Contribuir
-
-¡Las contribuciones son bienvenidas! Abre un **Issue** o envía un **Pull Request**.
-
----
-
-## 🙏 Agradecimientos
-
-- [Qwen Team](https://github.com/QwenLM) - Por los modelos Qwen
-- [Ollama](https://ollama.ai) - Por la gestión local de modelos
-- [HuggingFace](https://huggingface.co) - Por el hub de modelos
-- [Streamlit](https://streamlit.io) - Por la interfaz GUI
-
----
-
-**📌 Nota:** Los modelos de IA pueden tener requisitos de hardware específicos. Usa el comando `detect` para ver qué modelos son compatibles con tu dispositivo.
-
----
-
-<p align="center">
-  <img src="assets/icon/icon.svg" alt="AI-Local-Hub Icon" width="100"/>
-  <br>
-  <strong>AI-Local-Hub</strong> - Tu centro de IA local
-</p>
+**¡Disfruta de tu IA local!** 🎉

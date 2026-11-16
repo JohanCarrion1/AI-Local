@@ -1,0 +1,47 @@
+# AI-Local Mobile - Dependencias para APK
+# ==========================================
+# Este archivo contiene dependencias optimizadas para la app móvil
+
+# Core
+python>=3.8
+
+# Kivy para interfaz móvil
+kivy==2.2.1
+
+# Model Management (versiones ligeras)
+huggingface_hub>=0.19.0
+# transformers>=4.37.0  # Opcional: muy pesado para móvil
+# torch>=2.0.0  # Opcional: muy pesado para móvil
+# accelerate>=0.25.0  # Opcional
+
+# Multimodal Support (opcional)
+Pillow>=10.0.0
+# opencv-python>=4.8.0  # Opcional: pesado
+
+# Database
+# sqlite3>=3.0.0  # Incluido en Python
+
+# Resource Detection
+psutil>=5.9.0
+
+# GitHub Integration
+PyGithub>=2.0.0
+gitpython>=3.1.0
+
+# Security (Token Management)
+# keyring>=24.0.0  # Puede causar problemas en Android
+cryptography>=41.0.0
+
+# HTTP Requests
+requests>=2.31.0
+
+# Configuration
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+
+# Async Support
+anyio>=4.0.0
+httpx>=0.25.0
+
+# Note: Para la APK final, muchas de estas dependencias serán
+# empaquetadas por Buildozer automáticamente
