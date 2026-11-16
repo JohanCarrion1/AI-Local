@@ -18,10 +18,10 @@ jobs:
       with:
         python-version: '3.11'
     
-    - name: Install test dependencies
+    - name: Install all dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pytest psutil gitpython requests keyring
+        pip install pytest psutil gitpython requests keyring PyGithub
     
     - name: Run tests
       run: |
@@ -32,6 +32,8 @@ jobs:
         python -c "from app.core.resource_detector import ResourceDetector; print('ResourceDetector: OK')"
         python -c "from app.db.database import Database; print('Database: OK')"
         python -c "from app.core.github_connector import GitHubConnector; print('GitHubConnector: OK')"
+        python -c "from app.core.model_manager import ModelManager; print('ModelManager: OK')"
+        python -c "from app.core.executor import ModelExecutor; print('ModelExecutor: OK')"
     
     - name: Check syntax
       run: |
