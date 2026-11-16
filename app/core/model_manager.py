@@ -14,14 +14,13 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
 
 from huggingface_hub import (
-    HfApi, 
-    HfFolder,
     snapshot_download,
     login,
     whoami,
     list_models,
     ModelFilter,
-    ModelSearchArguments
+    ModelSearchArguments,
+    model_info
 )
 from transformers import AutoConfig
 
@@ -58,7 +57,6 @@ class ModelManager:
     def __init__(self):
         self.models_dir = Config.MODELS_DIR
         self.models_dir.mkdir(parents=True, exist_ok=True)
-        self._api = HfApi()
         self._cached_models: Dict[str, ModelInfo] = {}
     
     def search_models(
@@ -140,7 +138,7 @@ class ModelManager:
             if model_id in self._cached_models:
                 return self._cached_models[model_id]
             
-            model = self._api.model_info(model_id)
+            model = model_info(model_id)
             
             model_info = ModelInfo(
                 id=model.id,
@@ -397,7 +395,7 @@ class ModelManager:
     def _get_model_size(self, model_id: str) -> int:
         """Get model size in bytes."""
         try:
-            model = self._api.model_info(model_id)
+            model = model_info(model_id)
             if model.siblings:
                 return sum(s.size for s in model.siblings)
             return 0
