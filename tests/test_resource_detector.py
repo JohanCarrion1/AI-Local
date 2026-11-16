@@ -50,5 +50,5 @@ def test_get_compatible_models():
 def test_detect_tier():
     """Test that detect_tier returns a valid tier."""
     from app.utils.config import Config
-    tier = ResourceDetector.detect_tier()
+    tier = Config.detect_tier()
     assert tier in Config.MODEL_RECOMMENDATIONS.keys()
