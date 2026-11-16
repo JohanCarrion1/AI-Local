@@ -28,7 +28,7 @@ source.exclude_dirs = tests, .git, .github, __pycache__, *.pyc, *.pyo, .buildoze
 version = 1.0.0
 
 # (list) Application requirements
-requirements = python3,kivy==2.2.1,requests,psutil,gitpython,PyGithub,pydantic,anyio,httpx,Pillow
+requirements = python3,kivy==2.2.1,requests,psutil,gitpython,PyGithub,pydantic,anyio,httpx,Pillow,cython
 
 # (str) Icon of the application
 icon.filename = assets/icon/icon.png
@@ -42,11 +42,8 @@ android.permissions = INTERNET,ACCESS_NETWORK_STATE,ACCESS_WIFI_STATE,WRITE_EXTE
 # (int) Minimum API required (default is 21)
 android.minapi = 21
 
-# (int) Android SDK version to use (default is 27)
-android.sdk = 30
-
-# (str) android NDK version (default is 19b)
-android.ndk = 23b
+# (list) Android architecture, default is armeabi-v7a
+android.archs = arm64-v8a,armeabi-v7a
 
 # (bool) Use --private data storage (True) or --dir public storage (False)
 android.private_storage = True
@@ -56,9 +53,6 @@ p4a.branch = develop
 
 # (str) Android entry point, default is ok for Kivy-based app
 android.entrypoint = org.kivy.android.PythonActivity
-
-# (list) Android architecture, default is armeabi-v7a
-android.arch = arm64-v8a,armeabi-v7a
 
 # (str) The bootstraps to build for, choices: sdl2_gradle, pygame_gradle, webview_gradle, service_only
 p4a.bootstrap = sdl2_gradle

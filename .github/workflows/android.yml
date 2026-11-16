@@ -37,7 +37,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install buildozer==1.5.0 kivy==2.2.1
+        pip install buildozer==1.5.0 kivy==2.2.1 cython
     
     - name: Set up Java
       uses: actions/setup-java@v3
@@ -81,15 +81,13 @@ jobs:
       run: |
         cd $GITHUB_WORKSPACE
         
-        # Use existing buildozer.spec
-        if [ ! -f buildozer.spec ]; then
-          cp .github/workflows/buildozer.spec buildozer.spec
-        fi
+        # Use the buildozer.spec from the repository
+        cp buildozer.spec buildozer.spec
         
-        # Build with limited resources
-        buildozer -v android debug 2>&1 | tail -100
+        # Build with verbose output
+        buildozer -v android debug
       continue-on-error: true
-      timeout-minutes: 120
+      timeout-minutes: 150
       env:
         BUILDOZER_WARN_ON_ROOT: 0
     
