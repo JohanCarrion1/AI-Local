@@ -65,7 +65,7 @@ jobs:
         python -m build --sdist --wheel
     
     - name: Upload artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: ai-local-hub-package
         path: dist/*
