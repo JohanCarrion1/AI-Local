@@ -1,0 +1,59 @@
+# AI-Local-Hub - .gitignore
+# ============================
+
+# Modelos descargados
+models/
+*.gguf
+*.bin
+*.pt
+*.h5
+*.safetensors
+*.onnx
+
+# Entorno virtual
+venv/
+.env/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Base de datos local
+*.db
+*.sqlite
+
+# Tokens y configuraciones sensibles
+.github/tokens/
+config.json
+secrets.json
+.env
+
+# Build
+build/
+dist/
+*.egg-info/
+
+# Dependencias
+*.egg
+*.egg-info/
+
+# Cache
+.cache/
+.pip-cache/
+
+# Temporary files
+tmp/
+temp/
