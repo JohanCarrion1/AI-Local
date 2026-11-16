@@ -1,0 +1,81 @@
+# Buildozer specification for GitHub Actions
+
+[app]
+
+# (str) Title of your application
+title = AI Local Gallery
+
+# (str) Package name
+package.name = ai.local.gallery
+
+# (str) Package domain (needed for android/ios packaging)
+package.domain = org.ailocals
+
+# (str) Source code where the main.py live
+source.dir = .
+
+# (list) Source files to include (let empty to include all the files)
+source.include_exts = py,png,jpg,kv,atlas,ttf,otf,woff,woff2,svg
+
+# (list) List of inclusions using pattern matching
+source.include_patterns = assets/*,app/*
+
+# (list) Source files to exclude (let empty to not exclude anything)
+source.exclude_dirs = tests, .git, .github, __pycache__, *.pyc, *.pyo, .buildozer, bin, .venv, docs
+
+# (str) Application versioning (method 1)
+version = 1.0.0
+
+# (list) Application requirements
+requirements = python3,kivy==2.2.1,requests,psutil,gitpython,PyGithub,pydantic,anyio,httpx,Pillow
+
+# (str) Icon of the application
+icon.filename = assets/icon/icon.png
+
+# (str) Supported orientation (one of landscape, portrait or all)
+orientation = portrait
+
+# (list) List of permissions
+android.permissions = INTERNET,ACCESS_NETWORK_STATE,ACCESS_WIFI_STATE,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE
+
+# (int) Minimum API required (default is 21)
+android.minapi = 21
+
+# (int) Android SDK version to use (default is 27)
+android.sdk = 30
+
+# (str) android NDK version (default is 19b)
+android.ndk = 23b
+
+# (bool) Use --private data storage (True) or --dir public storage (False)
+android.private_storage = True
+
+# (str) python-for-android branch to use
+p4a.branch = develop
+
+# (str) Android entry point, default is ok for Kivy-based app
+android.entrypoint = org.kivy.android.PythonActivity
+
+# (list) Android architecture, default is armeabi-v7a
+android.arch = arm64-v8a,armeabi-v7a
+
+# (str) The bootstraps to build for, choices: sdl2_gradle, pygame_gradle, webview_gradle, service_only
+android.bootstrap = sdl2_gradle
+
+# (int) Android NDK API to use. This is the minimum API version you want to support
+android.ndk_api = 21
+
+# (bool) Use --dir public storage
+#android.private_storage = False
+
+# (str) The Android NDK directory (if empty, it will be automatically downloaded.)
+#android.ndk_path = 
+
+# (str) The Android SDK directory (if empty, it will be automatically downloaded.)
+#android.sdk_path = 
+
+# (str) python-for-android git clone directory (if empty, it will be automatically cloned from github)
+#p4a.source_dir = 
+
+# (int) port number to specify an explicit --port= p4a argument (eg for bootstrap flask)
+#p4a.port = 

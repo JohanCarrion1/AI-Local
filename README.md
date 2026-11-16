@@ -16,7 +16,25 @@
 
 ## 🚀 Instalación
 
-### Para Android (APK)
+### Para Android (APK desde GitHub Actions)
+
+**¡La APK se compila automáticamente en GitHub Actions!**
+
+1. **Descargar la APK**:
+   - Ve a la pestaña **Actions** en el repositorio GitHub
+   - Busca el workflow **"Android APK Build"**
+   - Haz clic en el último run exitoso
+   - En la sección **Artifacts**, descarga **ai-local-gallery-apk**
+   - La APK estará dentro del archivo ZIP
+
+2. **Instalar en tu Android**:
+   - Copia el archivo `.apk` a tu dispositivo
+   - Habilita "Fuentes desconocidas" en la configuración de Android
+   - Instala la APK
+
+### Para Android (Compilar localmente)
+
+Si prefieres compilar tú mismo:
 
 1. **Requisitos**:
    - Android 7.0+ (API 24+)
