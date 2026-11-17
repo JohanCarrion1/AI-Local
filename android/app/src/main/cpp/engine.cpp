@@ -10,7 +10,7 @@ static llama_model * model = nullptr;
 static llama_context * ctx = nullptr;
 static mtmd_context * vision = nullptr;
 static std::atomic<bool> cancelled{false};
-static std::string str(JNIEnv * e, jstring s) { const char * p=e->GetStringUTFChars(s,nullptr); std::string v(p); e->ReleaseStringUTFChars(s,p); return v; }
+static std::string str(JNIEnv * e, jstring s) { auto cls=e->GetObjectClass(s); auto method=e->GetMethodID(cls,"getBytes","(Ljava/lang/String;)[B"); auto charset=e->NewStringUTF("UTF-8"); auto bytes=(jbyteArray)e->CallObjectMethod(s,method,charset); auto p=e->GetByteArrayElements(bytes,nullptr); std::string v((char*)p,e->GetArrayLength(bytes)); e->ReleaseByteArrayElements(bytes,p,JNI_ABORT); e->DeleteLocalRef(bytes); e->DeleteLocalRef(charset); e->DeleteLocalRef(cls); return v; }
 static void fail(JNIEnv * e, const char * msg) { e->ThrowNew(e->FindClass("java/lang/IllegalStateException"),msg); }
 extern "C" JNIEXPORT void JNICALL Java_com_ailocal_app_Engine_stop(JNIEnv *,jclass) { cancelled=true; }
 extern "C" JNIEXPORT void JNICALL Java_com_ailocal_app_Engine_unload(JNIEnv *,jclass) {
