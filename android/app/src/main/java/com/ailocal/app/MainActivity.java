@@ -59,9 +59,14 @@ public class MainActivity extends Activity {
       models =
           new JSONArray(
               new String(read(getAssets().open("models.json"), 1048576), StandardCharsets.UTF_8));
-      token = readToken();
     } catch (Exception e) {
       models = new JSONArray();
+    }
+    try {
+      token = readToken();
+    } catch (Exception e) {
+      prefs.edit().remove("token").remove("iv").apply();
+      token = "";
     }
     web = new WebView(this);
     setContentView(web);
@@ -101,7 +106,7 @@ public class MainActivity extends Activity {
   private void event(String type, Object data) {
     try {
       String js =
-          "window.receive(" + JSONObject.quote(type) + "," + JSONObject.valueToString(data) + ")";
+          "window.receive.apply(null," + new JSONArray().put(type).put(data).toString() + ")";
       runOnUiThread(
           () -> {
             if (!destroyed) web.evaluateJavascript(js, null);

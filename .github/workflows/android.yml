@@ -53,3 +53,14 @@ jobs:
           name: android-reports
           path: android/app/build/reports/
           if-no-files-found: ignore
+  interface-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install playwright==1.58.0
+      - run: playwright install --with-deps chromium
+      - run: python android/tests/ui_smoke.py
