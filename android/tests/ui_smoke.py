@@ -29,6 +29,14 @@ with sync_playwright() as p:
  assert page.evaluate('calls.at(-1)[0]')=='read'
  page.locator('#confirmYes').click();call=page.evaluate('calls.at(-1)');assert call[0]=='write' and call[1]['sha']=='abc' and call[1]['branch']=='dev'
  page.evaluate('receive("error","Conflicto SHA")');assert not page.locator('#save').is_disabled()
+ # A model reload preserves this model's conversation.
+ page.evaluate('receive("loaded","qwen05")')
+ assert page.locator('.bubble.assistant').count()==1
+ # Copying a response to a GitHub file requires an explicit review step.
+ page.locator('.bubble.assistant button').click()
+ assert page.input_value('#editor')=='new'
+ page.locator('#confirmYes').click()
+ assert page.input_value('#editor')=='¡Hola! Puedo ayudarte con código.'
  assert not errors, errors
  print('PASS: responsive gallery, filters, chat, persistence, output escaping, GitHub review and conflict retry')
  b.close()

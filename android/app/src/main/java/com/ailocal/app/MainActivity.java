@@ -528,11 +528,18 @@ public class MainActivity extends Activity {
                       if (ob.optLong("size") > 524288 || !ob.optString("encoding").equals("base64"))
                         throw new IOException(
                             "Solo se pueden editar archivos de texto de hasta 512 KB.");
-                      ob.put(
-                          "text",
-                          new String(
-                              Base64.decode(ob.getString("content"), Base64.DEFAULT),
-                              StandardCharsets.UTF_8));
+                      String text =
+                          StandardCharsets.UTF_8
+                              .newDecoder()
+                              .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+                              .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
+                              .decode(
+                                  java.nio.ByteBuffer.wrap(
+                                      Base64.decode(ob.getString("content"), Base64.DEFAULT)))
+                              .toString();
+                      if (text.indexOf('\0') >= 0)
+                        throw new IOException("No se pueden editar archivos binarios.");
+                      ob.put("text", text);
                     }
                     event(
                         "file",
