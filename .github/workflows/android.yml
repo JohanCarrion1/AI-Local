@@ -34,7 +34,7 @@ jobs:
           python3 android/check_catalog.py
           node --check android/app/src/main/assets/app.js
       - name: Build native engine and APK
-        run: gradle -p android --no-daemon --max-workers=2 assembleDebug lintDebug
+        run: ./android/gradlew -p android --no-daemon --max-workers=2 assembleDebug lintDebug
       - name: Require a real installable artifact
         run: |
           test -s android/app/build/outputs/apk/debug/app-debug.apk

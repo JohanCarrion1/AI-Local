@@ -70,6 +70,21 @@ public class MainActivity extends Activity {
     }
     web = new WebView(this);
     setContentView(web);
+    web.setOnApplyWindowInsetsListener(
+        (view, insets) -> {
+          if (Build.VERSION.SDK_INT >= 30) {
+            android.graphics.Insets bars =
+                insets.getInsets(android.view.WindowInsets.Type.systemBars());
+            view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
+          } else {
+            view.setPadding(
+                insets.getSystemWindowInsetLeft(),
+                insets.getSystemWindowInsetTop(),
+                insets.getSystemWindowInsetRight(),
+                insets.getSystemWindowInsetBottom());
+          }
+          return insets;
+        });
     web.setBackgroundColor(Color.rgb(16, 23, 19));
     web.getSettings().setJavaScriptEnabled(true);
     web.getSettings().setDomStorageEnabled(true);
@@ -412,6 +427,8 @@ public class MainActivity extends Activity {
                       Math.max(1, Math.min(4, Runtime.getRuntime().availableProcessors() - 1)));
                   active = m.getString("id");
                   snapshot();
+                  image = null;
+                  event("image", false);
                   event("loaded", active);
                 } else if (action.equals("delete")) {
                   JSONObject m = model(p.getString("id"));

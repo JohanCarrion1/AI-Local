@@ -13,7 +13,7 @@ En **Actions → Android APK Build**, abre una ejecución de tu rama y descarga 
 3. Pulsa Usar modelo. El motor llama.cpp integrado carga el GGUF y abre Chat local.
 4. Escribe y pulsa Enviar. Puedes detener la generación. Las conversaciones permanecen en el teléfono hasta iniciar un chat nuevo o borrar los datos de la app.
 5. Para fotos, carga **SmolVLM 500M**, pulsa Imagen y selecciona una imagen con el selector de Android. Qwen Coder admite texto, no imágenes. Se usa una foto por turno, reducida a un máximo de 1024 píxeles; el historial conserva texto, no las imágenes anteriores.
-6. GitHub: conecta un token de acceso personal, selecciona un repositorio y rama, abre una carpeta o archivo, edita el texto y revisa antes de guardar un commit. Si el archivo cambió remotamente, recárgalo: no se sobrescriben conflictos silenciosamente. No se ejecutan comandos del modelo ni se publican sus respuestas automáticamente. Pulsa Desconectar para borrar el token.
+6. GitHub: conecta un token de acceso personal, selecciona un repositorio y rama, abre una carpeta o archivo, edita el texto y revisa antes de guardar un commit. Puedes llevar el archivo al chat para pedir una revisión y copiar una respuesta al editor; revisa el resultado antes del commit. Si el archivo cambió remotamente, recárgalo: no se sobrescriben conflictos silenciosamente. No se ejecutan comandos del modelo ni se publican sus respuestas automáticamente. Pulsa Desconectar para borrar el token.
 
 ## Modelos incluidos
 
@@ -37,7 +37,8 @@ JDK 17, Gradle 8.11.1, Android SDK 35, NDK 28.0.13004108 y CMake 3.22.1:
 
 ```sh
 sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'ndk;28.0.13004108' 'cmake;3.22.1'
-gradle -p android assembleDebug lintDebug
+cd android
+./gradlew assembleDebug lintDebug
 ```
 
 CMake obtiene llama.cpp del commit fijo `9581154a2250cc9e6948e4c2a2fc4b4e19d1a57e`, con soporte multimodal mtmd. APK contiene JNI, llama y mtmd; modelos se descargan separadamente. No requiere permisos generales de almacenamiento: los modelos están en almacenamiento propio de la app y las imágenes se abren con el selector del sistema.
