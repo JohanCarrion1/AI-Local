@@ -1,220 +1,55 @@
-# AI-Local Gallery
+# AI Local · Android
 
-![AI-Local Gallery Icon](assets/icon/icon.svg)
+Asistente Android con inferencia **dentro de la aplicación**, sin Termux, Python, Ollama ni servidores. La nueva app nativa se encuentra en `android/`; el prototipo Python se conserva para escritorio.
 
-**AI-Local Gallery** es una aplicación para administrar modelos de IA de forma 100% local. Permite buscar, descargar y ejecutar modelos de HuggingFace Hub directamente en tu dispositivo sin necesidad de servidores externos.
+## Instalar
 
-## 📱 Características
+En **Actions → Android APK Build**, abre una ejecución de tu rama y descarga `ai-local-android-arm64`. Descomprime e instala `app-debug.apk` en un teléfono **Android 8+ de 64 bits (ARM64)**. Es una compilación de prueba firmada con clave debug, no una versión para Play Store. El paquete nuevo es `com.ailocal.app`; no reemplaza automáticamente el antiguo prototipo Kivy.
 
-- ✅ **Búsqueda dinámica**: Busca TODOS los modelos disponibles en HuggingFace Hub
-- ✅ **Descarga con un clic**: Descarga modelos directamente desde la aplicación
-- ✅ **Ejecución local**: Ejecuta modelos sin servidores (sin Ollama)
-- ✅ **Soporte móvil**: Funciona en Android (Termux) y PC
-- ✅ **Interfaz profesional**: Diseño tipo Google AI Gallery
-- ✅ **Detección de recursos**: Recomienda modelos compatibles con tu dispositivo
-- ✅ **Integración GitHub**: Conéctate con token para repositorios privados
+## Uso
 
-## 🚀 Instalación
+1. Biblioteca: revisa RAM y espacio, pulsa Descargar y confirma el tamaño. Android mantiene la descarga al salir y reintenta interrupciones de red. Usa Cancelar para detenerla.
+2. Cada archivo se verifica por tamaño y SHA-256 antes de habilitar Usar modelo. La verificación de varios GB puede tardar.
+3. Pulsa Usar modelo. El motor llama.cpp integrado carga el GGUF y abre Chat local.
+4. Escribe y pulsa Enviar. Puedes detener la generación. Las conversaciones permanecen en el teléfono hasta iniciar un chat nuevo o borrar los datos de la app.
+5. Para fotos, carga **SmolVLM 500M**, pulsa Imagen y selecciona una imagen con el selector de Android. Qwen Coder admite texto, no imágenes. Se usa una foto por turno, reducida a un máximo de 1024 píxeles; el historial conserva texto, no las imágenes anteriores.
+6. GitHub: conecta un token de acceso personal, selecciona un repositorio y rama, abre una carpeta o archivo, edita el texto y revisa antes de guardar un commit. Si el archivo cambió remotamente, recárgalo: no se sobrescriben conflictos silenciosamente. No se ejecutan comandos del modelo ni se publican sus respuestas automáticamente. Pulsa Desconectar para borrar el token.
 
-### Para Android (APK desde GitHub Actions)
+## Modelos incluidos
 
-**¡La APK se compila automáticamente en GitHub Actions!**
+| Modelo | Descarga aproximada | RAM total orientativa | Entrada |
+|---|---:|---:|---|
+| Qwen2.5-Coder 0.5B Instruct Q4_K_M | 0.49 GB | 2–3 GB | Texto |
+| Qwen2.5-Coder 3B Instruct Q4_K_M | 2.10 GB | 5–6 GB | Texto |
+| Qwen2.5-Coder 7B Instruct Q4_K_M | 4.68 GB | 8–12 GB | Texto |
+| Qwen2.5-Coder 7B Instruct abliterated Q4_K_M (bartowski) | 4.68 GB | 8–12 GB | Texto |
+| SmolVLM 500M Instruct Q8_0 + proyector Q8_0 | 0.55 GB | 3–4 GB | Texto + imagen |
 
-1. **Descargar la APK**:
-   - Ve a la pestaña **Actions** en el repositorio GitHub
-   - Busca el workflow **"Android APK Build"**
-   - Haz clic en el último run exitoso
-   - En la sección **Artifacts**, descarga **ai-local-gallery-apk**
-   - La APK estará dentro del archivo ZIP
+Las referencias y hashes se fijan en `android/app/src/main/assets/models.json`. Los modelos oficiales Qwen son de Qwen; la variante abliterated es comunitaria. Consulta licencias y fichas en los repositorios Hugging Face enlazados en el catálogo. La variante abliterated no mejora necesariamente la calidad. Las recomendaciones de RAM son estimaciones, no garantías: el sistema operativo y otras apps consumen memoria. Se muestra también RAM libre; empezar por 0.5B es prudente. El motor usa CPU, hasta 4 hilos, contexto 4096 y hasta 512 tokens de respuesta. En teléfonos básicos los modelos grandes pueden ser lentos o Android puede cerrar el proceso por falta de memoria.
 
-2. **Instalar en tu Android**:
-   - Copia el archivo `.apk` a tu dispositivo
-   - Habilita "Fuentes desconocidas" en la configuración de Android
-   - Instala la APK
+## Privacidad y GitHub
 
-### Para Android (Compilar localmente)
+Inferencia offline tras descargar y verificar el modelo. Solo las descargas (Hugging Face) y las operaciones explícitas con GitHub requieren red. El token se cifra con AES-GCM y una clave de Android Keystore; las copias de seguridad de la app están deshabilitadas. Nunca se guarda en JavaScript ni se entrega al modelo. Utiliza un token fine-grained limitado a los repositorios necesarios, con **Contents: Read and write** y Metadata de lectura. La app lista hasta 100 repositorios recientes y permite editar texto de hasta 512 KB. No hay sincronización automática ni edición autónoma de repositorios: los cambios se envían al confirmar Guardar.
 
-Si prefieres compilar tú mismo:
+## Compilar
 
-1. **Requisitos**:
-   - Android 7.0+ (API 24+)
-   - Buildozer
-   - Python 3.8+
+JDK 17, Gradle 8.11.1, Android SDK 35, NDK 28.0.13004108 y CMake 3.22.1:
 
-2. **Compilar la APK**:
-   ```bash
-   # Instalar Buildozer
-   pip install buildozer
-   
-   # Inicializar Buildozer
-   buildozer init
-   
-   # Compilar APK (esto puede tardar 1-2 horas)
-   buildozer -v android debug
-   
-   # La APK se generará en: bin/
-   ```
-
-3. **Instalar la APK**:
-   - Copia el archivo `bin/AI-Local-Gallery-1.0.0-debug.apk` a tu Android
-   - Instálalo como cualquier otra APK
-
-### Para PC (Desktop)
-
-1. **Clonar el repositorio**:
-   ```bash
-   git clone https://github.com/JohanCarrion1/AI-Local.git
-   cd AI-Local
-   ```
-
-2. **Instalar dependencias**:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **Ejecutar la aplicación**:
-   ```bash
-   # Opción 1: Usar el script principal (detecta plataforma automáticamente)
-   python main.py
-   
-   # Opción 2: Ejecutar Streamlit directamente
-   streamlit run app/gui/app.py
-   ```
-
-### Para Termux (Android)
-
-1. **Actualizar paquetes**:
-   ```bash
-   pkg update && pkg upgrade
-   ```
-
-2. **Instalar dependencias**:
-   ```bash
-   pkg install python git
-   pip install -r requirements.txt
-   ```
-
-3. **Ejecutar**:
-   ```bash
-   python main.py
-   ```
-
-## 📁 Estructura del Proyecto
-
-```
-AI-Local/
-├── app/
-│   ├── __init__.py
-│   ├── core/
-│   │   ├── __init__.py
-│   │   ├── model_manager.py      # Búsqueda y descarga de modelos
-│   │   ├── executor.py           # Ejecución de modelos
-│   │   ├── github_connector.py  # Conexión con GitHub
-│   │   └── resource_detector.py # Detección de recursos
-│   ├── gui/
-│   │   ├── __init__.py
-│   │   └── app.py                # Interfaz Streamlit (Desktop)
-│   ├── mobile/
-│   │   ├── __init__.py
-│   │   └── main.py              # Interfaz Kivy (Mobile)
-│   └── db/
-│       ├── __init__.py
-│       └── database.py           # Base de datos SQLite
-├── assets/
-│   └── icon/
-│       └── icon.svg             # Icono de la aplicación
-├── main.py                      # Punto de entrada principal
-├── buildozer.spec               # Configuración para Buildozer
-├── requirements.txt             # Dependencias Python
-├── .github/
-│   └── workflows/
-│       └── ci.yml               # CI/CD Pipeline
-└── README.md
+```sh
+sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'ndk;28.0.13004108' 'cmake;3.22.1'
+gradle -p android assembleDebug lintDebug
 ```
 
-## 🎨 Interfaz de Usuario
+CMake obtiene llama.cpp del commit fijo `9581154a2250cc9e6948e4c2a2fc4b4e19d1a57e`, con soporte multimodal mtmd. APK contiene JNI, llama y mtmd; modelos se descargan separadamente. No requiere permisos generales de almacenamiento: los modelos están en almacenamiento propio de la app y las imágenes se abren con el selector del sistema.
 
-### Desktop (Streamlit)
-- **Página de Galería**: Busca modelos con filtros por tarea, framework, lenguaje
-- **Mis Modelos**: Lista de modelos descargados
-- **Ejecutar**: Interfaz para ejecutar modelos con prompts
-- **GitHub**: Conexión con token y navegación de repositorios
-- **Configuración**: Información del sistema y limpieza
+Actions compila el motor real, ejecuta lint, exige un APK, verifica la firma y comprueba la biblioteca JNI dentro del paquete. Un workflow en verde demuestra compilación, **no** una prueba física de rendimiento o inferencia en cada teléfono.
 
-### Mobile (Kivy)
-- **Pantalla de Galería**: Tarjetas de modelos con botones de descarga y ejecución
-- **Mis Modelos**: Modelos descargados localmente
-- **Ejecutar**: Interfaz para interactuar con modelos
-- **Configuración**: Información del dispositivo
+## Prueba en teléfono
 
-## 🔧 Configuración
+- Descargar 0.5B, verificar y cargar; desconectar internet y conversar, detener y crear nuevo chat.
+- Descargar SmolVLM y su proyector; comparar respuestas sobre dos fotos distintas.
+- Interrumpir red en una descarga, reabrir la app y comprobar recuperación; cancelar y reintentar.
+- Crear una rama de prueba en GitHub, editar un archivo y verificar el commit; modificar el mismo archivo remotamente para comprobar el rechazo de SHA obsoleto.
+- Probar 3B/7B solo con memoria suficiente y observar consumo/temperatura.
 
-### Token de HuggingFace
-Para descargar modelos privados, configura tu token:
-```python
-from huggingface_hub import login
-login(token="tu_token_aqui")
-```
-
-### Token de GitHub
-Para acceder a repositorios privados:
-```python
-from app.core.github_connector import GitHubConnector
-github = GitHubConnector(token="tu_github_token")
-```
-
-## 📦 Dependencias
-
-Las dependencias principales incluyen:
-- `huggingface_hub`: Para buscar y descargar modelos
-- `transformers`: Para cargar y ejecutar modelos
-- `torch`: Backend para modelos PyTorch
-- `streamlit`: Interfaz web para desktop
-- `kivy`: Interfaz nativa para móvil
-- `psutil`: Detección de recursos del sistema
-- `sqlite3`: Base de datos local
-
-## 🤖 Modelos Recomendados
-
-### Para dispositivos con 4-6GB RAM (como Samsung A36):
-- `TinyLlama/TinyLlama-1.1B`
-- `Qwen/Qwen2.5-Coder-0.5B`
-- `distilbert-base-uncased`
-- `google/mobilebert-uncased`
-
-### Para dispositivos con 8GB+ RAM:
-- `Qwen/Qwen2.5-Coder-1.5B`
-- `Qwen/Qwen2.5-Coder-3B`
-- `mistralai/Mistral-7B` (requiere ~14GB RAM)
-
-## 📊 Detección de Recursos
-
-La aplicación detecta automáticamente:
-- Tipo de dispositivo (móvil/PC)
-- RAM disponible
-- Almacenamiento disponible
-- GPU disponible (si hay)
-
-Y recomienda modelos compatibles con tus recursos.
-
-## 🔒 Privacidad
-
-- Todos los modelos se descargan y ejecutan localmente
-- No se envía información a servidores externos
-- Los tokens se guardan localmente de forma segura
-
-## 📜 Licencia
-
-MIT License - © 2024 JohanCarrion1
-
-## 🤝 Contribuciones
-
-Las contribuciones son bienvenidas. Por favor abre un Issue o Pull Request en GitHub.
-
-## 📞 Soporte
-
-Si tienes problemas o preguntas, abre un Issue en el repositorio de GitHub.
-
----
-
-**¡Disfruta de tu IA local!** 🎉
+El icono vectorial original combina un monograma arquitectónico, un núcleo vertical y una estrella de cuatro puntas. Los archivos Python y su CI heredado siguen siendo independientes del APK.
