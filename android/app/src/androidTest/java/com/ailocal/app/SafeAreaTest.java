@@ -105,4 +105,79 @@ public class SafeAreaTest {
               assertEquals(0, web.getPaddingBottom());
             });
   }
+
+  private String evaluate(String script) throws Exception {
+    CountDownLatch ready = new CountDownLatch(1);
+    String[] value = {null};
+    InstrumentationRegistry.getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              WebView web =
+                  rule.getActivity().getWindow().getDecorView().findViewWithTag("app-webview");
+              web.evaluateJavascript(
+                  script,
+                  result -> {
+                    value[0] = result;
+                    ready.countDown();
+                  });
+            });
+    assertTrue(ready.await(15, TimeUnit.SECONDS));
+    return value[0];
+  }
+
+  private void awaitUiReady() throws Exception {
+    for (int i = 0; i < 50; i++) {
+      if ("true".equals(evaluate("typeof window.handleBack === 'function'"))) return;
+      Thread.sleep(200);
+    }
+    fail("Chat UI did not initialize");
+  }
+
+  @Test
+  public void androidBackClosesDrawerBeforeLeavingChat() throws Exception {
+    awaitUiReady();
+    assertEquals(
+        "true",
+        evaluate(
+            "openDrawer();document.getElementById('menuToggle').getAttribute('aria-expanded') ==="
+                + " 'true'"));
+    InstrumentationRegistry.getInstrumentation()
+        .runOnMainSync(() -> rule.getActivity().onBackPressed());
+    for (int i = 0; i < 30; i++) {
+      if ("true"
+          .equals(
+              evaluate(
+                  "document.getElementById('menuToggle').getAttribute('aria-expanded') ==="
+                      + " 'false'")))
+        break;
+      Thread.sleep(100);
+    }
+    assertEquals(
+        "true", evaluate("document.getElementById('drawer').classList.contains('hidden')"));
+    assertFalse(rule.getActivity().isFinishing());
+  }
+
+  @Test
+  public void lightAppearanceUpdatesNativeSafeArea() throws Exception {
+    awaitUiReady();
+    evaluate("prefs.mode='light';applyTheme();true");
+    boolean[] light = {false};
+    for (int i = 0; i < 50 && !light[0]; i++) {
+      InstrumentationRegistry.getInstrumentation()
+          .runOnMainSync(
+              () -> {
+                View safe =
+                    rule.getActivity().getWindow().getDecorView().findViewWithTag("safe-area");
+                android.graphics.drawable.Drawable background = safe.getBackground();
+                light[0] =
+                    background instanceof android.graphics.drawable.ColorDrawable
+                        && ((android.graphics.drawable.ColorDrawable) background).getColor()
+                            == android.graphics.Color.rgb(246, 243, 237);
+              });
+      if (!light[0]) Thread.sleep(100);
+    }
+    assertTrue("Native margins must follow the selected light theme", light[0]);
+    assertEquals("true", evaluate("document.documentElement.dataset.mode === 'light'"));
+    assertSafeViewport();
+  }
 }
