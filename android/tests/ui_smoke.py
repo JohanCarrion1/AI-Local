@@ -19,7 +19,7 @@ with sync_playwright() as p:
  five=dict(ram=7.2,available=5,budget=4.75,storage=100,installed=[])
  # 7.2 GiB physical RAM does not fail an arbitrary nominal 8 GB minimum.
  q4=page.evaluate('(d)=>assessModel(state.models.find(m=>m.id==="qwen7"),d)',five)
- assert q4['level']=='trial' and q4['label']=='Posible con margen ajustado'
+ assert q4['level']=='caution' and q4['label']=='Posible con margen ajustado'
  assert all('8 GB' not in reason and 'mínimos' not in reason for reason in q4['reasons'])
  for model in ('qwen7-q3','qwen3-8-q3'):
   assert page.evaluate('(x)=>assessModel(state.models.find(m=>m.id===x.id),x.device).recommended',dict(id=model,device=five))
@@ -28,14 +28,13 @@ with sync_playwright() as p:
  page.select_option('#contextTokens','4096')
  assert page.evaluate('memoryEstimate(state.models.find(m=>m.id==="qwen7")).upper')>short
  page.select_option('#contextTokens','1024')
- # Insufficient estimates warn but explicitly permit a bounded real trial.
+ # A low-memory estimate does not gate normal model loading with a benchmark or popup.
  state['installed'].append('qwen7')
  page.evaluate('(s)=>receive("state",s)',state)
  page.locator('[data-model="qwen7"] .actions button').click()
- assert page.locator('#confirmTitle').inner_text()=='Probar en este teléfono'
- page.locator('#confirmYes').click()
+ assert not page.locator('#confirm').is_visible()
  call=page.evaluate('calls.at(-1)')
- assert call==['load',{'id':'qwen7','context':1024,'trial':True}]
+ assert call==['load',{'id':'qwen7','context':1024}]
  page.evaluate('receive("idle",true)')
  page.locator('#modelSearch').fill('Llama')
  assert page.locator('#models article').count()>=2
@@ -47,6 +46,7 @@ with sync_playwright() as p:
  page.get_by_role('button',name='Visión',exact=True).click();assert page.locator('#models article').count()==sum(m['vision'] for m in models)
  page.locator('nav [data-page="chat"]').click();page.locator('#prompt').fill('Hola <img src=x onerror=alert(1)> 👋');page.locator('#send').click()
  assert page.evaluate('calls.at(-1)[0]')=='chat'
+ assert page.evaluate('calls.at(-1)[1].maxTokens')==512
  assert page.locator('#messages img').count()==0
  page.evaluate('receive("answer","¡Hola! Puedo ayudarte con código.");receive("done",true)')
  assert page.locator('.bubble.assistant').count()==1

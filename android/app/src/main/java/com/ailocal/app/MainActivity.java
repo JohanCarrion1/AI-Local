@@ -34,7 +34,7 @@ public class MainActivity extends Activity {
   private int imageWidth, imageHeight;
   private volatile boolean busy = false;
   private boolean destroyed = false;
-  private String interruptedTrial = "";
+  private String interruptedLoad = "";
   private final Handler handler = new Handler(Looper.getMainLooper());
   private long lastResourceRefresh = 0;
   private final Runnable ticker =
@@ -63,7 +63,7 @@ public class MainActivity extends Activity {
     super.onCreate(state);
     prefs = getSharedPreferences("local", MODE_PRIVATE);
     dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
-    recoverInterruptedTrial();
+    recoverInterruptedLoad();
     try {
       models =
           new JSONArray(
@@ -134,9 +134,9 @@ public class MainActivity extends Activity {
               io.execute(
                   () -> {
                     snapshot();
-                    if (!interruptedTrial.isEmpty()) {
-                      event("notice", interruptedTrial);
-                      interruptedTrial = "";
+                    if (!interruptedLoad.isEmpty()) {
+                      event("notice", interruptedLoad);
+                      interruptedLoad = "";
                     }
                   });
           }
@@ -194,8 +194,8 @@ public class MainActivity extends Activity {
     return true;
   }
 
-  private void recoverInterruptedTrial() {
-    String pending = prefs.getString("pendingTrial", "");
+  private void recoverInterruptedLoad() {
+    String pending = prefs.getString("pendingLoad", "");
     if (pending.isEmpty()) return;
     try {
       JSONObject attempt = new JSONObject(pending);
@@ -210,17 +210,17 @@ public class MainActivity extends Activity {
             memoryExit = true;
         }
       }
-      interruptedTrial =
+      interruptedLoad =
           memoryExit
-              ? "Android cerró la prueba anterior por memoria baja. Prueba la variante Q3 o un"
+              ? "Android cerró la carga anterior por memoria baja. Puedes usar Q3 o un"
                   + " contexto menor."
-              : "La prueba anterior se interrumpió; no hay confirmación de la causa. Puedes probar"
+              : "La carga anterior se interrumpió; no hay confirmación de la causa. Puedes usar"
                   + " Q3 o menos contexto.";
     } catch (Exception ignored) {
-      interruptedTrial =
-          "La prueba anterior se interrumpió. Puedes volver a intentarlo con menos contexto.";
+      interruptedLoad =
+          "La carga anterior se interrumpió. Puedes volver a cargar el modelo con menos contexto.";
     }
-    prefs.edit().remove("pendingTrial").apply();
+    prefs.edit().remove("pendingLoad").apply();
   }
 
   private JSONObject resourceSample() throws Exception {
@@ -241,16 +241,16 @@ public class MainActivity extends Activity {
       for (int i = 0; i < models.length(); i++)
         if (installed(models.getJSONObject(i))) ids.put(models.getJSONObject(i).getString("id"));
       s.put("installed", ids);
-      JSONArray trials = new JSONArray();
+      JSONArray usage = new JSONArray();
       for (Map.Entry<String, ?> entry : prefs.getAll().entrySet()) {
-        if (entry.getKey().startsWith("trial_")) {
+        if (entry.getKey().startsWith("usage_")) {
           try {
-            trials.put(new JSONObject((String) entry.getValue()));
+            usage.put(new JSONObject((String) entry.getValue()));
           } catch (Exception ignored) {
           }
         }
       }
-      s.put("trials", trials);
+      s.put("usage", usage);
       event("state", s);
     } catch (Exception e) {
       event("error", e.getMessage());
@@ -492,17 +492,15 @@ public class MainActivity extends Activity {
                   Engine.unload();
                   JSONObject resources = resourceSample();
                   event("resources", resources);
-                  // Estimates inform the user; actual allocation/inference decides the trial.
+                  // Estimates inform the user; native allocation decides whether loading succeeds.
                   int context =
                       Math.max(
                           m.getBoolean("vision") ? 2048 : 512,
                           Math.min(4096, p.optInt("context", 1024)));
-                  boolean trial = p.optBoolean("trial", true);
-                  long started = SystemClock.elapsedRealtime();
                   prefs
                       .edit()
                       .putString(
-                          "pendingTrial",
+                          "pendingLoad",
                           new JSONObject()
                               .put("id", m.getString("id"))
                               .put("pid", android.os.Process.myPid())
@@ -515,63 +513,10 @@ public class MainActivity extends Activity {
                       m.getBoolean("vision") ? file(fs.getJSONObject(1)).getPath() : "",
                       Math.max(1, Math.min(4, Runtime.getRuntime().availableProcessors() - 1)),
                       context);
-                  long loadMs = SystemClock.elapsedRealtime() - started;
-                  event("trialProgress", "Modelo cargado. Verificando generación local…");
-                  if (trial) {
-                    ByteArrayOutputStream testOutput = new ByteArrayOutputStream();
-                    double[] peak = {
-                      Math.max(resources.getDouble("pssMiB"), android.os.Debug.getPss() / 1024.0)
-                    };
-                    int[] samples = {0};
-                    Engine.generate(
-                        new String[] {"user"},
-                        new String[] {"Responde brevemente: hola."},
-                        null,
-                        0,
-                        0,
-                        16,
-                        bytes -> {
-                          testOutput.write(bytes, 0, bytes.length);
-                          if (++samples[0] % 4 == 0)
-                            event("trialProgress", "Prueba local: " + samples[0] + " / 16 tokens…");
-                          if (samples[0] % 4 == 0)
-                            peak[0] = Math.max(peak[0], android.os.Debug.getPss() / 1024.0);
-                        });
-                    JSONObject measured = new JSONObject(Engine.stats());
-                    int tokens = measured.getInt("generatedTokens");
-                    if (tokens == 0 && !measured.optBoolean("cancelled"))
-                      throw new IOException("La prueba no generó texto.");
-                    JSONObject result =
-                        new JSONObject()
-                            .put("id", m.getString("id"))
-                            .put("context", measured.getInt("context"))
-                            .put("compactKv", measured.getBoolean("compactKv"))
-                            .put("tokens", tokens)
-                            .put("loadMs", loadMs)
-                            .put("generationMs", measured.getDouble("generationMs"))
-                            .put(
-                                "tps",
-                                tokens * 1000.0 / Math.max(1, measured.getDouble("generationMs")))
-                            .put(
-                                "peakPssMiB", Math.max(peak[0], android.os.Debug.getPss() / 1024.0))
-                            .put("status", measured.optBoolean("cancelled") ? "detenida" : "passed")
-                            .put(
-                                "output",
-                                new String(testOutput.toByteArray(), StandardCharsets.UTF_8));
-                    prefs
-                        .edit()
-                        .putString("trial_" + m.getString("id") + "_" + context, result.toString())
-                        .apply();
-                    event("trial", result);
-                    if (measured.optBoolean("cancelled")) {
-                      Engine.unload();
-                      throw new IOException(
-                          "Prueba detenida. Puedes volver a probar con menos contexto.");
-                    }
-                    if (!measured.getBoolean("compactKv"))
-                      event("notice", "Este modelo usa caché F16; el motor no aceptó K en Q8.");
-                  }
-                  prefs.edit().remove("pendingTrial").apply();
+                  JSONObject profile = new JSONObject(Engine.stats());
+                  if (!profile.getBoolean("compactKv"))
+                    event("notice", "Este modelo usa caché F16; el motor no aceptó K en Q8.");
+                  prefs.edit().remove("pendingLoad").apply();
                   active = m.getString("id");
                   activeContext = context;
                   snapshot();
@@ -603,6 +548,8 @@ public class MainActivity extends Activity {
                     roles[i] = history.getJSONObject(i).getString("role");
                     texts[i] = history.getJSONObject(i).getString("content");
                   }
+                  double[] peakPss = {android.os.Debug.getPss() / 1024.0};
+                  int[] tokenSamples = {0};
                   ByteArrayOutputStream output = new ByteArrayOutputStream();
                   Engine.generate(
                       roles,
@@ -610,17 +557,41 @@ public class MainActivity extends Activity {
                       image,
                       imageWidth,
                       imageHeight,
-                      256,
+                      Math.max(1, Math.min(2048, p.optInt("maxTokens", 512))),
                       bytes -> {
                         output.write(bytes, 0, bytes.length);
+                        if (++tokenSamples[0] % 8 == 0)
+                          peakPss[0] = Math.max(peakPss[0], android.os.Debug.getPss() / 1024.0);
                         event("answer", new String(output.toByteArray(), StandardCharsets.UTF_8));
                       });
+                  JSONObject measured = new JSONObject(Engine.stats());
+                  int tokens = measured.getInt("generatedTokens");
+                  JSONObject result =
+                      new JSONObject()
+                          .put("id", active)
+                          .put("context", measured.getInt("context"))
+                          .put("compactKv", measured.getBoolean("compactKv"))
+                          .put("tokens", tokens)
+                          .put("generationMs", measured.getDouble("generationMs"))
+                          .put(
+                              "tps",
+                              tokens * 1000.0 / Math.max(1, measured.getDouble("generationMs")))
+                          .put(
+                              "peakPssMiB",
+                              Math.max(peakPss[0], android.os.Debug.getPss() / 1024.0))
+                          .put("stopped", measured.optBoolean("cancelled"));
+                  prefs
+                      .edit()
+                      .putString("usage_" + active + "_" + activeContext, result.toString())
+                      .apply();
+                  event("metrics", result);
                   image = null;
                   event("done", true);
+                  snapshot();
                 }
               } catch (Throwable e) {
                 if (action.equals("load")) {
-                  prefs.edit().remove("pendingTrial").apply();
+                  prefs.edit().remove("pendingLoad").apply();
                   Engine.unload();
                   active = "";
                   activeContext = 0;

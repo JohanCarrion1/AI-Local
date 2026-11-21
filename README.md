@@ -42,7 +42,7 @@ En **Actions → Android APK Build**, abre una ejecución de tu rama y descarga 
 | Qwen Coder · 3B | Q4_K_M | 2.10 GB | Texto |
 | SmolVLM · 500M | Q8_0 | 0.55 GB | Texto + imagen |
 
-Las referencias y hashes se fijan en `android/app/src/main/assets/models.json`. Los modelos oficiales Qwen son de Qwen; la variante abliterated es comunitaria. Consulta licencias y fichas en los repositorios Hugging Face enlazados en el catálogo. La variante abliterated no mejora necesariamente la calidad. Las estimaciones de memoria no son garantías: el sistema operativo y otras apps consumen memoria. La vista inicial prioriza los modelos de 5B o más; Todos conserva también las opciones ligeras. El buscador y los filtros separan código, razonamiento, conversación y visión. Las tarjetas distinguen margen suficiente, margen ajustado, prueba local y tamaños superiores a la RAM física visible. Descargar no garantiza que un teléfono pueda cargar el modelo. El motor usa CPU, hasta 4 hilos, contexto inicial de texto 1024 (configurable hasta 4096) y hasta 256 tokens de respuesta. En teléfonos básicos los modelos grandes pueden ser lentos o Android puede cerrar el proceso por falta de memoria.
+Las referencias y hashes se fijan en `android/app/src/main/assets/models.json`. Los modelos oficiales Qwen son de Qwen; la variante abliterated es comunitaria. Consulta licencias y fichas en los repositorios Hugging Face enlazados en el catálogo. La variante abliterated no mejora necesariamente la calidad. Las estimaciones de memoria no son garantías: el sistema operativo y otras apps consumen memoria. La vista inicial prioriza los modelos de 5B o más; Todos conserva también las opciones ligeras. El buscador y los filtros separan código, razonamiento, conversación y visión. Las tarjetas distinguen margen suficiente, margen ajustado, posible necesidad de más RAM libre y tamaños superiores a la RAM física visible. Descargar no garantiza que un teléfono pueda cargar el modelo. El motor usa CPU, hasta 4 hilos, contexto inicial de texto 1024 (configurable hasta 4096) y un máximo configurable de respuesta hasta 2048 tokens, limitado por el contexto restante. En teléfonos básicos los modelos grandes pueden ser lentos o Android puede cerrar el proceso por falta de memoria.
 
 
 ## Recursos, estimación y prueba en el teléfono
@@ -57,7 +57,9 @@ El contexto de texto inicial es 1024 tokens y se puede elegir 512, 1024, 2048 o 
 
 Con 5 GiB disponibles y un umbral bajo típico, el margen orientativo es aproximadamente 4.75 GiB. Qwen Coder 7B Q4 tiene unos 4.36 GiB solo en archivo: puede quedar justo con búferes; Q3 deja más margen. Ninguna estimación garantiza que cualquier 7B/8B funcione holgadamente en un teléfono concreto.
 
-**Cargar y probar** realiza la asignación real y genera hasta 16 tokens de texto. Las estimaciones ya no bloquean esa prueba. Si hay poco margen se pide confirmación, se recomienda cerrar otras apps y se advierte que Android puede cerrar el proceso. El resultado guarda contexto real, modo de caché, tokens, tiempos y PSS máximo muestreado; la velocidad incluye preparación del prompt. Una prueba breve de texto no garantiza chats largos, imágenes o estabilidad bajo otras cargas. Si el proceso se interrumpe se informa al reabrir; solo se atribuye a memoria baja cuando Android lo confirma mediante ApplicationExitInfo.
+**Cargar modelo** abre directamente el chat con los pesos completos. No hay una prueba previa obligatoria, ni un modo demo, ni una generación sintética de 16 tokens. La estimación no bloquea un 7B/8B; si el motor no consigue asignar memoria se muestra su error real. Los archivos cuyo tamaño estimado supera toda la RAM física visible conservan una advertencia con la posibilidad de intentar la carga manualmente.
+
+Las estadísticas se miden durante tus respuestas reales: tokens, tiempo incluyendo preparación y PSS máximo muestreado. Se puede elegir un máximo de respuesta de 256 a 2048 tokens, sujeto al espacio restante del contexto. Esto es una configuración de inferencia, no una restricción de prueba del modelo. Una respuesta corta que funcione no garantiza más memoria para todos los contextos o imágenes. Si una carga se interrumpe se informa al reabrir; solo se atribuye a memoria baja cuando Android lo confirma mediante ApplicationExitInfo.
 
 La interfaz sigue dentro del contenedor nativo que reserva barras del sistema, recortes y teclado. Las pruebas Android 15 verifican retrato, paisaje e insets del teclado.
 
@@ -81,7 +83,7 @@ Actions compila el motor real, ejecuta lint, exige un APK, verifica la firma y c
 
 ## Pruebas
 
-Actions ejecuta pruebas de disponibilidad real, estimación por cuantización/contexto, carga de prueba, catálogo e interfaz; el job `android-insets-test` compila para x86_64 y usa un emulador Android 15 para verificar que el WebView queda fuera de las barras del sistema. El APK de distribución sigue siendo ARM64. Los archivos se verifican por revisión, tamaño y SHA-256; no se ha probado cada modelo grande en un teléfono físico.
+Actions ejecuta pruebas de disponibilidad real, estimación por cuantización/contexto, carga directa, catálogo e interfaz; el job `android-insets-test` compila para x86_64 y usa un emulador Android 15 para verificar que el WebView queda fuera de las barras del sistema. El APK de distribución sigue siendo ARM64. Los archivos se verifican por revisión, tamaño y SHA-256; no se ha probado cada modelo grande en un teléfono físico.
 
 ### Prueba en teléfono
 

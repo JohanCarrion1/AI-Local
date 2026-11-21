@@ -20,11 +20,11 @@ function assessModel(model,device=state){
  if(!installed&&(!Number.isFinite(device.storage)||device.storage*1073741824<bytes+268435456)){
   level='storage';label='Espacio insuficiente';reasons.push('Se necesitan '+((bytes+268435456)/1073741824).toFixed(1)+' GiB libres para descargar.');
  }else if(!Number.isFinite(device.available)||!Number.isFinite(device.budget)){
-  level='trial';label='Requiere prueba local';reasons.push('No se pudo medir la memoria disponible.');
+  level='caution';label='Memoria disponible sin medir';reasons.push('No se pudo medir la memoria disponible.');
  }else if(estimate.lower>device.ram){
   level='large';label='No recomendado';reasons.push('La estimación ('+estimate.lower.toFixed(2)+'–'+estimate.upper.toFixed(2)+' GiB) supera los '+device.ram.toFixed(1)+' GiB de RAM física visible.');
  }else if(device.lowMemory||device.pressure||device.budget<estimate.upper){
-  level='trial';label=device.budget>=estimate.lower?'Posible con margen ajustado':'Requiere prueba local';
+  level='caution';label=device.budget>=estimate.lower?'Posible con margen ajustado':'Podría necesitar más RAM libre';
   reasons.push('Estimación '+estimate.lower.toFixed(2)+'–'+estimate.upper.toFixed(2)+' GiB; disponible ahora '+device.available.toFixed(1)+' GiB.');
   if(device.budget<estimate.lower)reasons.push('Cierra otras apps para liberar memoria antes de probar.');
   if(device.lowMemory||device.pressure)reasons.push('Android indica memoria baja o presión de memoria.');
@@ -61,20 +61,21 @@ function renderModels(){
   if(!assessment.recommended)status.append(el('small','',assessment.reasons.join(' ')));
   else status.append(el('small','','Estimación de pesos + caché KV + búferes. mmap y la memoria recuperable pueden cambiar el consumo real.'));
   card.append(status);
-  const actions=el('div','actions'),btn=el('button',available?'secondary':'primary',available?(state.active===m.id&&state.activeContext===contextFor(m)?'En uso ✓':'Cargar y probar'):'Descargar ↓');
+  const actions=el('div','actions'),btn=el('button',available?'secondary':'primary',available?(state.active===m.id&&state.activeContext===contextFor(m)?'En uso ✓':'Cargar modelo'):'Descargar ↓');
   btn.onclick=()=>{
    if(available){
     if(state.active===m.id&&state.activeContext===contextFor(m)){page('chat');return;}
     if(running)return;
-    const load=()=>{setBusy(true);toast('Cargando y probando el modelo… Puedes detener la prueba desde Chat.');clearTimeout(toast.timer);command('load',{id:m.id,context:contextFor(m),trial:true});};
-    if(!assessment.recommended)confirmAction('Probar en este teléfono',assessModel(m).reasons.join('\n')+'\nSe intentará cargar con contexto '+contextFor(m)+' y generar hasta 16 tokens. La estimación no bloquea esta prueba. Si Android se queda sin memoria puede cerrar la app.',load,'Probar ahora');else load();
+    const load=()=>{setBusy(true);toast('Cargando el modelo…');clearTimeout(toast.timer);command('load',{id:m.id,context:contextFor(m)});};
+    // RAM estimates are advisory. Loading opens chat directly.
+    if(assessModel(m).level==='large')confirmAction('Modelo muy grande',assessModel(m).reasons.join('\n')+'\nPuedes intentar cargarlo; Android puede cerrar la app si no hay memoria suficiente.',load,'Cargar modelo');else load();
    }else{
     const warning=assessment.recommended?'': assessment.label+'.\n'+assessment.reasons.join('\n')+'\n\n';
     confirmAction('Descargar '+m.name,warning+(assessment.bytes/1e9).toFixed(2)+' GB. Se recomienda Wi-Fi. La descarga no garantiza que el teléfono pueda ejecutar el modelo.',()=>command('download',{id:m.id}));
    }
   };
   actions.append(btn);card.append(actions);
-  const tested=(state.trials||[]).find(t=>t.id===m.id&&t.context===contextFor(m));if(tested){card.append(el('p','trial-result',tested.status==='passed'?'Texto probado en este teléfono · '+tested.context+' de contexto · '+tested.tokens+' tokens · '+tested.tps.toFixed(1)+' tokens/s · PSS máximo muestreado '+tested.peakPssMiB.toFixed(0)+' MiB':'Prueba anterior: '+tested.status));}
+  const used=(state.usage||[]).find(u=>u.id===m.id&&u.context===contextFor(m));if(used){card.append(el('p','usage-result','Último chat en este teléfono · '+used.context+' de contexto · '+used.tokens+' tokens · '+used.tps.toFixed(1)+' tokens/s · PSS máximo muestreado '+used.peakPssMiB.toFixed(0)+' MiB'));}
   const progress=el('div','hidden');progress.id='progress-'+m.id;card.append(progress);
   if(available){const remove=el('button','quiet','Eliminar del teléfono');remove.onclick=()=>confirmAction('Eliminar modelo','Se borrarán los archivos descargados de '+m.name+'.',()=>command('delete',{id:m.id}));card.append(remove);}
   root.append(card);
@@ -84,7 +85,7 @@ function renderModels(){
 function renderChat(){const root=$('messages');if(!messages.length&&!running){root.innerHTML='<div class="empty">Un espacio para pensar, escribir y construir.<small>Carga un modelo desde la Biblioteca para empezar.</small></div>';return;}root.replaceChildren();for(const m of messages){if(m.role==='system')continue;const b=el('div','bubble '+m.role);b.append(el('small','',m.role==='user'?'Tú':'AI Local'),el('span','',m.content));if(m.role==='assistant'){const edit=el('button','quiet','Llevar al editor GitHub ↗');edit.onclick=()=>{if(!opened||!fileSha)return toast('Primero abre el archivo que deseas editar en GitHub.',true);confirmAction('Copiar al editor','La respuesta sustituirá el contenido del editor. Podrás revisarlo antes de guardar.',()=>{const match=m.content.match(/^```[^\n]*\n([\s\S]*?)\n```\s*$/);$('editor').value=match?match[1]:m.content;page('github');toast('Contenido en el editor. Revísalo antes de guardar.');});};b.append(edit);}root.append(b);}if(running){const b=el('div','bubble assistant');b.append(el('small','','AI Local'),el('span','',answer||'Pensando en tu dispositivo…'));root.append(b);}}
 function persist(){localStorage.setItem('chat',JSON.stringify(messages));if(state.active)conversationModel=state.active;localStorage.setItem('chatModel',conversationModel);}
 function setBusy(value){running=value;$('send').disabled=value;$('attach').disabled=value;$('newChat').disabled=value;$('stop').classList.toggle('hidden',!value);$('send').classList.toggle('hidden',value);}
-$('send').onclick=()=>{const text=$('prompt').value.trim();if(!text||running)return;if(!state.active)return toast('Carga un modelo desde la Biblioteca.',true);const m=state.models.find(m=>m.id===state.active);if(attachment&&!m.vision)return toast('Selecciona un modelo de Visión para interpretar imágenes.',true);messages.push({role:'user',content:text});persist();$('prompt').value='';answer='';setBusy(true);renderChat();command('chat',{messages:[{role:'system',content:'Eres un asistente útil. Responde en español con precisión.'},...messages]});};
+$('send').onclick=()=>{const text=$('prompt').value.trim();if(!text||running)return;if(!state.active)return toast('Carga un modelo desde la Biblioteca.',true);const m=state.models.find(m=>m.id===state.active);if(attachment&&!m.vision)return toast('Selecciona un modelo de Visión para interpretar imágenes.',true);messages.push({role:'user',content:text});persist();$('prompt').value='';answer='';setBusy(true);renderChat();command('chat',{maxTokens:Number($('responseTokens').value)||512,messages:[{role:'system',content:'Eres un asistente útil. Responde en español con precisión.'},...messages]});};
 $('stop').onclick=()=>{command('stop');toast('Deteniendo la generación…');};$('newChat').onclick=()=>confirmAction('Nueva conversación','Se borrará el historial de este chat del teléfono.',()=>{messages=[];persist();command('clearImage');renderChat();});
 $('attach').onclick=()=>{const m=state.models.find(m=>m.id===state.active);if(!m?.vision)return toast('Carga un modelo de Visión en la Biblioteca para enviar imágenes.',true);command('image');};$('removeImage').onclick=()=>command('clearImage');
 $('connect').onclick=()=>{const token=$('token').value;if(!token.trim())return toast('Introduce un token de GitHub.',true);command('connect',{token});$('token').value='';};$('disconnect').onclick=()=>command('disconnect');$('repos').onclick=()=>command('repos');
@@ -96,8 +97,7 @@ window.receive=(type,data)=>{switch(type){
  case 'resources':state={...state,...data};renderResources(state);renderModels();break;
  case 'notice':toast(data);break;
  case 'error':toast(data,true);$('save').disabled=false;break;
- case 'trialProgress':toast(data);clearTimeout(toast.timer);break;
- case 'trial':toast(data.status==='passed'?'Prueba local completada: '+data.tokens+' tokens, '+data.tps.toFixed(1)+' tokens/s.':'La prueba se interrumpió.');break;
+ case 'metrics':$('chatHint').textContent=data.context+' contexto · '+data.tps.toFixed(1)+' tokens/s';break;
  case 'loaded':if(conversationModel&&conversationModel!==data)messages=[];conversationModel=data;persist();setBusy(false);renderChat();page('chat');toast('Modelo listo. Ya puedes conversar sin internet.');break;
  case 'answer':answer=data;renderChat();break;
  case 'done':if(answer){messages.push({role:'assistant',content:answer});persist();}else if(data===false&&messages.at(-1)?.role==='user'){const failed=messages.pop();$('prompt').value=failed.content;persist();}answer='';setBusy(false);attachment=false;$('attachment').classList.add('hidden');renderChat();break;
@@ -119,6 +119,6 @@ function renderResources(data){
  $('ramFree').textContent=data.available.toFixed(1)+' GiB';
  $('ramBudget').textContent=data.budget.toFixed(1)+' GiB';
  $('ramReserve').textContent=data.reserve.toFixed(1)+' GiB';
- $('resourceSource').textContent=(data.source||'Medición del sistema')+' · '+(data.lowMemory?'Memoria baja':data.pressure?'Presión de memoria':data.pressureKnown===false?'Presión de memoria no accesible':'Sin presión detectada')+(data.pssMiB!==undefined?' · App PSS '+data.pssMiB.toFixed(0)+' MiB':'')+'. El margen orientativo no es un límite impuesto por Android ni bloquea una prueba de carga.';
+ $('resourceSource').textContent=(data.source||'Medición del sistema')+' · '+(data.lowMemory?'Memoria baja':data.pressure?'Presión de memoria':data.pressureKnown===false?'Presión de memoria no accesible':'Sin presión detectada')+(data.pssMiB!==undefined?' · App PSS '+data.pssMiB.toFixed(0)+' MiB':'')+'. El margen orientativo no es un límite impuesto por Android ni bloquea la carga de un 7B por una estimación.';
 }
 $('refreshResources').onclick=()=>{command('state');toast('Actualizando recursos del teléfono…');};

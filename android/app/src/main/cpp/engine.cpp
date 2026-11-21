@@ -43,7 +43,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_ailocal_app_Engine_generate(JNIEnv * 
     if(!ctx) { fail(e,"Selecciona y carga un modelo."); return; }
     auto started=std::chrono::steady_clock::now(); generated_tokens=0; generation_ms=0;
     const int context_size=(int)llama_n_ctx(ctx);
-    const int output_limit=std::max(1,std::min((int)maxTokens,context_size/4));
+    int output_limit=std::max(1,std::min((int)maxTokens,2048));
     cancelled=false; llama_memory_clear(llama_get_memory(ctx),true);
     std::vector<std::string> rs,ts; int count=e->GetArrayLength(texts);
     for(int i=0;i<count;i++) { auto r=(jstring)e->GetObjectArrayElement(roles,i); auto t=(jstring)e->GetObjectArrayElement(texts,i); rs.push_back(str(e,r)); ts.push_back(str(e,t)); e->DeleteLocalRef(r); e->DeleteLocalRef(t); }
@@ -59,12 +59,14 @@ extern "C" JNIEXPORT void JNICALL Java_com_ailocal_app_Engine_generate(JNIEnv * 
         auto chunks=mtmd_input_chunks_init(); mtmd_input_text text{formatted.data(),(size_t)n,true,true}; const mtmd_bitmap * bitmaps[]={bitmap};
         int code=mtmd_tokenize(vision,chunks,&text,bitmaps,1);
         size_t tokens=0; for(size_t i=0;i<mtmd_input_chunks_size(chunks);i++) tokens+=mtmd_input_chunk_get_n_tokens(mtmd_input_chunks_get(chunks,i));
-        if(!code && tokens+output_limit<(size_t)context_size) code=mtmd_helper_eval_chunks(vision,ctx,chunks,0,0,256,true,&past); else code=1;
+        if(!code && tokens+8<(size_t)context_size) code=mtmd_helper_eval_chunks(vision,ctx,chunks,0,0,256,true,&past); else code=1;
         mtmd_input_chunks_free(chunks); mtmd_bitmap_free(bitmap);
+        if(!code) output_limit=std::min(output_limit,std::max(1,context_size-(int)past-1));
         if(code) { fail(e,"No se pudo procesar la imagen o el contexto es demasiado largo. Inicia un chat nuevo."); return; }
     } else {
         int nt=-llama_tokenize(vocab,formatted.data(),n,nullptr,0,true,true);
-        if(nt<=0 || nt+output_limit>=context_size) { fail(e,"Contexto completo. Inicia un chat nuevo."); return; }
+        if(nt<=0 || nt+8>=context_size) { fail(e,"Contexto completo. Inicia un chat nuevo."); return; }
+        output_limit=std::min(output_limit,context_size-nt-1);
         std::vector<llama_token> tokens(nt); llama_tokenize(vocab,formatted.data(),n,tokens.data(),nt,true,true);
         for(int i=0;i<nt;i+=256) { int len=std::min(256,nt-i); auto batch=llama_batch_get_one(tokens.data()+i,len); if(cancelled) return; if(llama_decode(ctx,batch)) { fail(e,"Error al procesar el contexto."); return; } } past=nt;
     }
