@@ -62,7 +62,7 @@ public class NativeChatTest {
     evaluate("Native.command('state','{}')");
     await("state.installed.includes('qwen05')", 30);
     evaluate(
-        "prefs.autoLoad=false;prefs.response=32;document.getElementById('responseTokens').value='32';"
+        "prefs.autoLoad=false;prefs.response=256;document.getElementById('responseTokens').value='256';"
             + "beginLoad(state.models.find(m=>m.id==='qwen05'))");
     await("!running && state.active === 'qwen05'", 120);
     assertEquals("false", evaluate("!!chatFailure"));

@@ -312,7 +312,6 @@ function beginLoad(model) {
   chatFailure = null;
   setBusy(true, "load");
   toast("Cargando " + model.name + "…");
-  clearTimeout(toast.timer);
   updateHeader();
   command("load", { id: model.id, context: contextFor(model) });
   page("chat");
