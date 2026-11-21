@@ -24,7 +24,8 @@ public class MainActivity extends Activity {
   private WebView web;
   private JSONArray models;
   private final ExecutorService io = Executors.newSingleThreadExecutor();
-  private final ExecutorService inference = Executors.newSingleThreadExecutor();
+  // Native llama state is process-wide; serialize Activity teardown and subsequent loads.
+  private static final ExecutorService inference = Executors.newSingleThreadExecutor();
   private android.content.SharedPreferences prefs;
   private DownloadManager dm;
   private volatile String active = "", token = "";
@@ -647,7 +648,6 @@ public class MainActivity extends Activity {
     handler.removeCallbacks(ticker);
     Engine.stop();
     inference.execute(() -> Engine.unload());
-    inference.shutdown();
     io.shutdown();
     web.destroy();
     super.onDestroy();
