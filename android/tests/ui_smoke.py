@@ -213,6 +213,13 @@ with sync_playwright() as p:
     assert recovery.locator('.bubble.assistant .message-text').inner_text().startswith('¡Hola!')
     assert not recovery.locator('.operation-error').count()
     assert not recovery.locator('#chatHint').is_visible()
+    navigate(recovery,'library')
+    recovery.locator('[data-model="qwen7"] button').filter(has_text='Eliminar del teléfono').click()
+    recovery.locator('#confirmYes').click()
+    assert recovery.evaluate('running && operationKind === "delete"')
+    recovery.evaluate('receive("idle",true)')
+    assert not recovery.evaluate('running')
+    navigate(recovery,'chat')
     settings(recovery);recovery.locator('#showStats').check();recovery.locator('#closeSettings').click()
     recovery.evaluate('receive("metrics",{context:1024,tps:3.5,stopped:false})')
     assert recovery.locator('#chatHint').inner_text()=='1024 contexto · 3.5 tokens/s'

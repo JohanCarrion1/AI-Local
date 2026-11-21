@@ -85,13 +85,14 @@ jobs:
       - name: Download and verify engineering inference fixture
         run: |
           python3 - <<'PY'
-          import hashlib, json, os, urllib.request
+          import hashlib, json, os, time, urllib.request
           from pathlib import Path
           catalog = json.loads(Path('android/app/src/main/assets/models.json').read_text())
           fixture = next(m for m in catalog if m['id'] == 'qwen05')['files'][0]
           digest = hashlib.sha256()
           path = Path(os.environ['RUNNER_TEMP']) / 'inference-fixture.gguf'
-          with urllib.request.urlopen(fixture['url'] + '?download=true', timeout=120) as response, path.open('wb') as out:
+          url = fixture['url'] + '?download=true&ci=' + str(time.time_ns())
+          with urllib.request.urlopen(url, timeout=120) as response, path.open('wb') as out:
               while chunk := response.read(8 * 1024 * 1024):
                   out.write(chunk)
                   digest.update(chunk)

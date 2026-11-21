@@ -216,6 +216,7 @@ document.addEventListener("keydown", (event) => {
 window.handleBack = () => {
   for (const id of ["confirm", "modelPicker", "settings"])
     if ($(id).open) {
+      if (id === "modelPicker") resumeAfterLoad = false;
       $(id).close();
       return true;
     }
@@ -860,12 +861,19 @@ function renderModels() {
     card.append(progress);
     if (available) {
       const remove = el("button", "quiet", "Eliminar del teléfono");
-      remove.onclick = () =>
+      remove.onclick = () => {
+        if (running)
+          return toast("Espera a que termine la operación del modelo.");
         confirmAction(
           "Eliminar modelo",
           "Se borrarán los archivos descargados de " + m.name + ".",
-          () => command("delete", { id: m.id }),
+          () => {
+            if (running) return;
+            setBusy(true, "delete");
+            command("delete", { id: m.id });
+          },
         );
+      };
       card.append(remove);
     }
     root.append(card);
@@ -979,6 +987,10 @@ window.receive = (type, data) => {
       $("save").disabled = false;
       break;
     case "operationError":
+      if (data.action === "delete") {
+        toast(data.message, true);
+        break;
+      }
       chatFailure = {
         action: data.action,
         message: data.message,
@@ -1068,7 +1080,7 @@ window.receive = (type, data) => {
       renderChat();
       break;
     case "idle":
-      if (running) break;
+      if (running && operationKind !== "delete") break;
       loadingModelId = "";
       setBusy(false);
       break;
