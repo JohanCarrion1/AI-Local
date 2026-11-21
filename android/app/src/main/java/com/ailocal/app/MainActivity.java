@@ -516,6 +516,7 @@ public class MainActivity extends Activity {
                       Math.max(1, Math.min(4, Runtime.getRuntime().availableProcessors() - 1)),
                       context);
                   long loadMs = SystemClock.elapsedRealtime() - started;
+                  event("trialProgress", "Modelo cargado. Verificando generación local…");
                   if (trial) {
                     ByteArrayOutputStream testOutput = new ByteArrayOutputStream();
                     double[] peak = {
@@ -532,6 +533,8 @@ public class MainActivity extends Activity {
                         bytes -> {
                           testOutput.write(bytes, 0, bytes.length);
                           if (++samples[0] % 4 == 0)
+                            event("trialProgress", "Prueba local: " + samples[0] + " / 16 tokens…");
+                          if (samples[0] % 4 == 0)
                             peak[0] = Math.max(peak[0], android.os.Debug.getPss() / 1024.0);
                         });
                     JSONObject measured = new JSONObject(Engine.stats());

@@ -66,7 +66,7 @@ function renderModels(){
    if(available){
     if(state.active===m.id&&state.activeContext===contextFor(m)){page('chat');return;}
     if(running)return;
-    const load=()=>{setBusy(true);toast('Probando el modelo en el teléfono…');command('load',{id:m.id,context:contextFor(m),trial:true});};
+    const load=()=>{setBusy(true);toast('Cargando y probando el modelo… Puedes detener la prueba desde Chat.');clearTimeout(toast.timer);command('load',{id:m.id,context:contextFor(m),trial:true});};
     if(!assessment.recommended)confirmAction('Probar en este teléfono',assessModel(m).reasons.join('\n')+'\nSe intentará cargar con contexto '+contextFor(m)+' y generar hasta 16 tokens. La estimación no bloquea esta prueba. Si Android se queda sin memoria puede cerrar la app.',load,'Probar ahora');else load();
    }else{
     const warning=assessment.recommended?'': assessment.label+'.\n'+assessment.reasons.join('\n')+'\n\n';
@@ -96,6 +96,7 @@ window.receive=(type,data)=>{switch(type){
  case 'resources':state={...state,...data};renderResources(state);renderModels();break;
  case 'notice':toast(data);break;
  case 'error':toast(data,true);$('save').disabled=false;break;
+ case 'trialProgress':toast(data);clearTimeout(toast.timer);break;
  case 'trial':toast(data.status==='passed'?'Prueba local completada: '+data.tokens+' tokens, '+data.tps.toFixed(1)+' tokens/s.':'La prueba se interrumpió.');break;
  case 'loaded':if(conversationModel&&conversationModel!==data)messages=[];conversationModel=data;persist();setBusy(false);renderChat();page('chat');toast('Modelo listo. Ya puedes conversar sin internet.');break;
  case 'answer':answer=data;renderChat();break;
