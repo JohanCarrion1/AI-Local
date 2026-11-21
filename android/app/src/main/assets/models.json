@@ -1,33 +1,322 @@
 [
   {
-    "id": "qwen05",
-    "name": "Qwen Coder · 0.5B",
-    "repo": "Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF",
-    "revision": "ebb2015119c907b064c512bf053e945850b5875f",
-    "ram": 2,
+    "id": "qwen3-8",
+    "name": "Qwen3 · 8B",
+    "repo": "Qwen/Qwen3-8B-GGUF",
+    "revision": "7c41481f57cb95916b40956ab2f0b139b296d974",
+    "parameters": 8,
+    "kind": "reasoning",
+    "quant": "Q4_K_M",
+    "ram": 8,
+    "memory": 6.5,
+    "description": "Razonamiento, programación y conversación multilingüe. Usa /no_think para respuestas directas.",
     "vision": false,
     "files": [
       {
-        "file": "qwen2.5-coder-0.5b-instruct-q4_k_m.gguf",
-        "size": 491400064,
-        "sha256": "1d9614638d18024d0fbb36575a15f1302a3adf044df10345688ec4f6e1c4ff32",
-        "url": "https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF/resolve/ebb2015119c907b064c512bf053e945850b5875f/qwen2.5-coder-0.5b-instruct-q4_k_m.gguf"
+        "file": "Qwen3-8B-Q4_K_M.gguf",
+        "size": 5027783488,
+        "sha256": "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785",
+        "url": "https://huggingface.co/Qwen/Qwen3-8B-GGUF/resolve/7c41481f57cb95916b40956ab2f0b139b296d974/Qwen3-8B-Q4_K_M.gguf"
       }
     ]
   },
   {
-    "id": "qwen3",
-    "name": "Qwen Coder · 3B",
-    "repo": "Qwen/Qwen2.5-Coder-3B-Instruct-GGUF",
-    "revision": "f74adce6aa16316c625447af059dbebe4983757c",
-    "ram": 5,
+    "id": "qwen3-14",
+    "name": "Qwen3 · 14B",
+    "repo": "Qwen/Qwen3-14B-GGUF",
+    "revision": "530227a7d994db8eca5ab5ced2fb692b614357fd",
+    "parameters": 14,
+    "kind": "reasoning",
+    "quant": "Q4_K_M",
+    "ram": 16,
+    "memory": 11,
+    "description": "Más capacidad de razonamiento y generación de código; para dispositivos con mucha RAM.",
     "vision": false,
     "files": [
       {
-        "file": "qwen2.5-coder-3b-instruct-q4_k_m.gguf",
-        "size": 2104932800,
-        "sha256": "724fb256bec1ff062b2f65e4569e871ad2e95ab2a3989723d1769c54294730b7",
-        "url": "https://huggingface.co/Qwen/Qwen2.5-Coder-3B-Instruct-GGUF/resolve/f74adce6aa16316c625447af059dbebe4983757c/qwen2.5-coder-3b-instruct-q4_k_m.gguf"
+        "file": "Qwen3-14B-Q4_K_M.gguf",
+        "size": 9001752960,
+        "sha256": "500a8806e85ee9c83f3ae08420295592451379b4f8cf2d0f41c15dffeb6b81f0",
+        "url": "https://huggingface.co/Qwen/Qwen3-14B-GGUF/resolve/530227a7d994db8eca5ab5ced2fb692b614357fd/Qwen3-14B-Q4_K_M.gguf"
+      }
+    ]
+  },
+  {
+    "id": "qwen3-32",
+    "name": "Qwen3 · 32B",
+    "repo": "Qwen/Qwen3-32B-GGUF",
+    "revision": "938a7432affaec9157f883a87164e2646ae17555",
+    "parameters": 32,
+    "kind": "reasoning",
+    "quant": "Q4_K_M",
+    "ram": 32,
+    "memory": 24,
+    "description": "Modelo grande de razonamiento y código. Exigente incluso en teléfonos de gama alta.",
+    "vision": false,
+    "files": [
+      {
+        "file": "Qwen3-32B-Q4_K_M.gguf",
+        "size": 19762149024,
+        "sha256": "efd971561896866f0e910cce52761ca77b1b138090c7f15fe284676d57d1f689",
+        "url": "https://huggingface.co/Qwen/Qwen3-32B-GGUF/resolve/938a7432affaec9157f883a87164e2646ae17555/Qwen3-32B-Q4_K_M.gguf"
+      }
+    ]
+  },
+  {
+    "id": "qwen25-14",
+    "name": "Qwen2.5 Instruct · 14B",
+    "repo": "bartowski/Qwen2.5-14B-Instruct-GGUF",
+    "revision": "05244aa5d871c661c80082a15d3bce44714d068d",
+    "parameters": 14,
+    "kind": "chat",
+    "quant": "Q4_K_M",
+    "ram": 16,
+    "memory": 11,
+    "description": "Asistente multilingüe para redacción, análisis y seguimiento de instrucciones.",
+    "vision": false,
+    "files": [
+      {
+        "file": "Qwen2.5-14B-Instruct-Q4_K_M.gguf",
+        "size": 8988110976,
+        "sha256": "e47ad95dad6ff848b431053b375adb5d39321290ea2c638682577dafca87c008",
+        "url": "https://huggingface.co/bartowski/Qwen2.5-14B-Instruct-GGUF/resolve/05244aa5d871c661c80082a15d3bce44714d068d/Qwen2.5-14B-Instruct-Q4_K_M.gguf"
+      }
+    ]
+  },
+  {
+    "id": "coder14",
+    "name": "Qwen2.5 Coder · 14B",
+    "repo": "bartowski/Qwen2.5-Coder-14B-Instruct-GGUF",
+    "revision": "5b379ec4bf71bafecb5f9081ad28b19939128988",
+    "parameters": 14,
+    "kind": "code",
+    "quant": "Q4_K_M",
+    "ram": 16,
+    "memory": 11,
+    "description": "Código, depuración y refactorización de proyectos con mayor complejidad.",
+    "vision": false,
+    "files": [
+      {
+        "file": "Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf",
+        "size": 8988111072,
+        "sha256": "2946d28c9e1bb2bcae6d42e8678863a31775df6f740315c7d7e6d6b6411f5937",
+        "url": "https://huggingface.co/bartowski/Qwen2.5-Coder-14B-Instruct-GGUF/resolve/5b379ec4bf71bafecb5f9081ad28b19939128988/Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf"
+      }
+    ]
+  },
+  {
+    "id": "coder32",
+    "name": "Qwen2.5 Coder · 32B",
+    "repo": "bartowski/Qwen2.5-Coder-32B-Instruct-GGUF",
+    "revision": "40b525506a4f98ed425882fa6dfc90cc8139065e",
+    "parameters": 32,
+    "kind": "code",
+    "quant": "Q4_K_M",
+    "ram": 32,
+    "memory": 24,
+    "description": "La variante grande de Qwen2.5 Coder, con un consumo de memoria elevado.",
+    "vision": false,
+    "files": [
+      {
+        "file": "Qwen2.5-Coder-32B-Instruct-Q4_K_M.gguf",
+        "size": 19851336672,
+        "sha256": "8e2fd78ff55e7cdf577fda257bac2776feb7d73d922613caf35468073807e815",
+        "url": "https://huggingface.co/bartowski/Qwen2.5-Coder-32B-Instruct-GGUF/resolve/40b525506a4f98ed425882fa6dfc90cc8139065e/Qwen2.5-Coder-32B-Instruct-Q4_K_M.gguf"
+      }
+    ]
+  },
+  {
+    "id": "r1-qwen7",
+    "name": "DeepSeek R1 Distill Qwen · 7B",
+    "repo": "bartowski/DeepSeek-R1-Distill-Qwen-7B-GGUF",
+    "revision": "361004151d4f4f6b446dc5e6d46fbf4422a80d5f",
+    "parameters": 7,
+    "kind": "reasoning",
+    "quant": "Q4_K_M",
+    "ram": 8,
+    "memory": 6,
+    "description": "Razonamiento destilado para problemas de lógica, matemáticas y código.",
+    "vision": false,
+    "files": [
+      {
+        "file": "DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf",
+        "size": 4683073504,
+        "sha256": "731ece8d06dc7eda6f6572997feb9ee1258db0784827e642909d9b565641937b",
+        "url": "https://huggingface.co/bartowski/DeepSeek-R1-Distill-Qwen-7B-GGUF/resolve/361004151d4f4f6b446dc5e6d46fbf4422a80d5f/DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf"
+      }
+    ]
+  },
+  {
+    "id": "r1-qwen14",
+    "name": "DeepSeek R1 Distill Qwen · 14B",
+    "repo": "bartowski/DeepSeek-R1-Distill-Qwen-14B-GGUF",
+    "revision": "9f5d77d401799416e0702290a691038b44012e0c",
+    "parameters": 14,
+    "kind": "reasoning",
+    "quant": "Q4_K_M",
+    "ram": 16,
+    "memory": 11,
+    "description": "Razonamiento destilado de mayor capacidad para problemas complejos.",
+    "vision": false,
+    "files": [
+      {
+        "file": "DeepSeek-R1-Distill-Qwen-14B-Q4_K_M.gguf",
+        "size": 8988110240,
+        "sha256": "0b319bd0572f2730bfe11cc751defe82045fad5085b4e60591ac2cd2d9633181",
+        "url": "https://huggingface.co/bartowski/DeepSeek-R1-Distill-Qwen-14B-GGUF/resolve/9f5d77d401799416e0702290a691038b44012e0c/DeepSeek-R1-Distill-Qwen-14B-Q4_K_M.gguf"
+      }
+    ]
+  },
+  {
+    "id": "r1-llama8",
+    "name": "DeepSeek R1 Distill Llama · 8B",
+    "repo": "bartowski/DeepSeek-R1-Distill-Llama-8B-GGUF",
+    "revision": "935d400c2ed1a29cc2a1045df25ec7998fb4dfe4",
+    "parameters": 8,
+    "kind": "reasoning",
+    "quant": "Q4_K_M",
+    "ram": 10,
+    "memory": 7,
+    "description": "Variante de razonamiento sobre Llama 8B. Puede producir respuestas extensas.",
+    "vision": false,
+    "files": [
+      {
+        "file": "DeepSeek-R1-Distill-Llama-8B-Q4_K_M.gguf",
+        "size": 4920736608,
+        "sha256": "87bcba20b4846d8dadf753d3ff48f9285d131fc95e3e0e7e934d4f20bc896f5d",
+        "url": "https://huggingface.co/bartowski/DeepSeek-R1-Distill-Llama-8B-GGUF/resolve/935d400c2ed1a29cc2a1045df25ec7998fb4dfe4/DeepSeek-R1-Distill-Llama-8B-Q4_K_M.gguf"
+      }
+    ]
+  },
+  {
+    "id": "llama31",
+    "name": "Llama 3.1 Instruct · 8B",
+    "repo": "bartowski/Meta-Llama-3.1-8B-Instruct-GGUF",
+    "revision": "bf5b95e96dac0462e2a09145ec66cae9a3f12067",
+    "parameters": 8,
+    "kind": "chat",
+    "quant": "Q4_K_M",
+    "ram": 10,
+    "memory": 7,
+    "description": "Conversación, escritura y asistencia general en varios idiomas.",
+    "vision": false,
+    "files": [
+      {
+        "file": "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
+        "size": 4920739232,
+        "sha256": "7b064f5842bf9532c91456deda288a1b672397a54fa729aa665952863033557c",
+        "url": "https://huggingface.co/bartowski/Meta-Llama-3.1-8B-Instruct-GGUF/resolve/bf5b95e96dac0462e2a09145ec66cae9a3f12067/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf"
+      }
+    ]
+  },
+  {
+    "id": "mistral7",
+    "name": "Mistral Instruct v0.3 · 7B",
+    "repo": "bartowski/Mistral-7B-Instruct-v0.3-GGUF",
+    "revision": "61fd4167fff3ab01ee1cfe0da183fa27a944db48",
+    "parameters": 7,
+    "kind": "chat",
+    "quant": "Q4_K_M",
+    "ram": 8,
+    "memory": 6,
+    "description": "Asistente general compacto dentro de la familia de modelos 7B.",
+    "vision": false,
+    "files": [
+      {
+        "file": "Mistral-7B-Instruct-v0.3-Q4_K_M.gguf",
+        "size": 4372812000,
+        "sha256": "1270d22c0fbb3d092fb725d4d96c457b7b687a5f5a715abe1e818da303e562b6",
+        "url": "https://huggingface.co/bartowski/Mistral-7B-Instruct-v0.3-GGUF/resolve/61fd4167fff3ab01ee1cfe0da183fa27a944db48/Mistral-7B-Instruct-v0.3-Q4_K_M.gguf"
+      }
+    ]
+  },
+  {
+    "id": "nemo12",
+    "name": "Mistral NeMo Instruct · 12B",
+    "repo": "bartowski/Mistral-Nemo-Instruct-2407-GGUF",
+    "revision": "a2dd64a0a76ea1bdb2bb6ab6fa5496b003c7c908",
+    "parameters": 12,
+    "kind": "chat",
+    "quant": "Q4_K_M",
+    "ram": 16,
+    "memory": 10.5,
+    "description": "Modelo multilingüe para escritura, análisis y conversaciones detalladas.",
+    "vision": false,
+    "files": [
+      {
+        "file": "Mistral-Nemo-Instruct-2407-Q4_K_M.gguf",
+        "size": 7477208192,
+        "sha256": "7c1a10d202d8788dbe5628dc962254d10654c853cae6aaeca0618f05490d4a46",
+        "url": "https://huggingface.co/bartowski/Mistral-Nemo-Instruct-2407-GGUF/resolve/a2dd64a0a76ea1bdb2bb6ab6fa5496b003c7c908/Mistral-Nemo-Instruct-2407-Q4_K_M.gguf"
+      }
+    ]
+  },
+  {
+    "id": "gemma9",
+    "name": "Gemma 2 Instruct · 9B",
+    "repo": "bartowski/gemma-2-9b-it-GGUF",
+    "revision": "d731033f3dc4018261fd39896e50984d398b4ac5",
+    "parameters": 9,
+    "kind": "chat",
+    "quant": "Q4_K_M",
+    "ram": 12,
+    "memory": 8.5,
+    "description": "Asistente de Google para tareas generales, explicación y redacción.",
+    "vision": false,
+    "files": [
+      {
+        "file": "gemma-2-9b-it-Q4_K_M.gguf",
+        "size": 5761057728,
+        "sha256": "13b2a7b4115bbd0900162edcebe476da1ba1fc24e718e8b40d32f6e300f56dfe",
+        "url": "https://huggingface.co/bartowski/gemma-2-9b-it-GGUF/resolve/d731033f3dc4018261fd39896e50984d398b4ac5/gemma-2-9b-it-Q4_K_M.gguf"
+      }
+    ]
+  },
+  {
+    "id": "phi4",
+    "name": "Phi-4 · 14B",
+    "repo": "bartowski/phi-4-GGUF",
+    "revision": "19cd65f97c2f1712a81c506611d3f9c94b16a1e1",
+    "parameters": 14,
+    "kind": "reasoning",
+    "quant": "Q4_K_M",
+    "ram": 16,
+    "memory": 12,
+    "description": "Modelo de Microsoft orientado a razonamiento, matemáticas y tareas técnicas.",
+    "vision": false,
+    "files": [
+      {
+        "file": "phi-4-Q4_K_M.gguf",
+        "size": 9053114816,
+        "sha256": "009aba717c09d4a35890c7d35eb59d54e1dba884c7c526e7197d9c13ab5911d9",
+        "url": "https://huggingface.co/bartowski/phi-4-GGUF/resolve/19cd65f97c2f1712a81c506611d3f9c94b16a1e1/phi-4-Q4_K_M.gguf"
+      }
+    ]
+  },
+  {
+    "id": "qwenvl7",
+    "name": "Qwen2.5-VL Instruct · 7B",
+    "repo": "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF",
+    "revision": "508edd0afaa66bb9e9f40587acc2184f02daf1f6",
+    "parameters": 7,
+    "kind": "vision",
+    "quant": "Q4_K_M",
+    "ram": 12,
+    "memory": 8,
+    "description": "Imágenes y texto: preguntas sobre fotos, documentos y contenido visual.",
+    "vision": true,
+    "files": [
+      {
+        "file": "Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf",
+        "size": 4683072032,
+        "sha256": "9258bf05b12686d097ff3b6b18d968ab393649780aa2b3cd67fec43d50554392",
+        "url": "https://huggingface.co/ggml-org/Qwen2.5-VL-7B-Instruct-GGUF/resolve/508edd0afaa66bb9e9f40587acc2184f02daf1f6/Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf"
+      },
+      {
+        "file": "mmproj-Qwen2.5-VL-7B-Instruct-Q8_0.gguf",
+        "size": 853119712,
+        "sha256": "2ddb555391bae966e412deab9e07b58afa18bcc06930ba0f1c78a3695ab9e506",
+        "url": "https://huggingface.co/ggml-org/Qwen2.5-VL-7B-Instruct-GGUF/resolve/508edd0afaa66bb9e9f40587acc2184f02daf1f6/mmproj-Qwen2.5-VL-7B-Instruct-Q8_0.gguf"
       }
     ]
   },
@@ -45,7 +334,12 @@
         "sha256": "509287f78cb4d4cf6b3843734733b914b2c158e43e22a7f4bf5e963800894d3c",
         "url": "https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct-GGUF/resolve/13fb94bfda8c8cf22497dc57b78f391a9acb426a/qwen2.5-coder-7b-instruct-q4_k_m.gguf"
       }
-    ]
+    ],
+    "parameters": 7,
+    "kind": "code",
+    "memory": 6,
+    "description": "Generación, explicación y refactorización de código.",
+    "quant": "Q4_K_M"
   },
   {
     "id": "abl7",
@@ -61,7 +355,54 @@
         "sha256": "fdf02c16fb654ff60b2c30f1e91573ebc603a7084df3449df89120dca2b18170",
         "url": "https://huggingface.co/bartowski/Qwen2.5-Coder-7B-Instruct-abliterated-GGUF/resolve/a416f57ecabe9841551055493e6945895e54e135/Qwen2.5-Coder-7B-Instruct-abliterated-Q4_K_M.gguf"
       }
-    ]
+    ],
+    "parameters": 7,
+    "kind": "code",
+    "memory": 6,
+    "description": "Variante comunitaria abliterated de Qwen Coder. Revisa sus respuestas antes de utilizarlas.",
+    "quant": "Q4_K_M"
+  },
+  {
+    "id": "qwen05",
+    "name": "Qwen Coder · 0.5B",
+    "repo": "Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF",
+    "revision": "ebb2015119c907b064c512bf053e945850b5875f",
+    "ram": 2,
+    "vision": false,
+    "files": [
+      {
+        "file": "qwen2.5-coder-0.5b-instruct-q4_k_m.gguf",
+        "size": 491400064,
+        "sha256": "1d9614638d18024d0fbb36575a15f1302a3adf044df10345688ec4f6e1c4ff32",
+        "url": "https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF/resolve/ebb2015119c907b064c512bf053e945850b5875f/qwen2.5-coder-0.5b-instruct-q4_k_m.gguf"
+      }
+    ],
+    "parameters": 0.5,
+    "kind": "code",
+    "memory": 1.5,
+    "description": "Para tareas rápidas de programación en dispositivos con menos memoria.",
+    "quant": "Q4_K_M"
+  },
+  {
+    "id": "qwen3",
+    "name": "Qwen Coder · 3B",
+    "repo": "Qwen/Qwen2.5-Coder-3B-Instruct-GGUF",
+    "revision": "f74adce6aa16316c625447af059dbebe4983757c",
+    "ram": 5,
+    "vision": false,
+    "files": [
+      {
+        "file": "qwen2.5-coder-3b-instruct-q4_k_m.gguf",
+        "size": 2104932800,
+        "sha256": "724fb256bec1ff062b2f65e4569e871ad2e95ab2a3989723d1769c54294730b7",
+        "url": "https://huggingface.co/Qwen/Qwen2.5-Coder-3B-Instruct-GGUF/resolve/f74adce6aa16316c625447af059dbebe4983757c/qwen2.5-coder-3b-instruct-q4_k_m.gguf"
+      }
+    ],
+    "parameters": 3,
+    "kind": "code",
+    "memory": 3.5,
+    "description": "Código y depuración con menor consumo de memoria que los modelos grandes.",
+    "quant": "Q4_K_M"
   },
   {
     "id": "smol",
@@ -83,6 +424,11 @@
         "sha256": "d1eb8b6b23979205fdf63703ed10f788131a3f812c7b1f72e0119d5d81295150",
         "url": "https://huggingface.co/ggml-org/SmolVLM-500M-Instruct-GGUF/resolve/72e986006ef53e37cdd3f6d4241c90b0f01df376/mmproj-SmolVLM-500M-Instruct-Q8_0.gguf"
       }
-    ]
+    ],
+    "parameters": 0.5,
+    "kind": "vision",
+    "memory": 2.2,
+    "description": "Modelo visual ligero para preguntas sencillas sobre fotos.",
+    "quant": "Q8_0"
   }
 ]
