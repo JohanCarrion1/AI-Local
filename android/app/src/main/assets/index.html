@@ -408,6 +408,17 @@
         </div>
       </details>
       <section class="settings-group">
+        <h3>Segundo plano</h3>
+        <p id="backgroundStatus" class="muted">
+          Al cargar un modelo, la app continúa las respuestas al cambiar de
+          aplicación.
+        </p>
+        <button id="unloadModel" class="quiet" disabled>
+          Liberar modelo de la RAM
+        </button>
+        <small>Conserva el archivo descargado y tus conversaciones.</small>
+      </section>
+      <section class="settings-group">
         <h3>Conversaciones</h3>
         <button id="deleteCurrent" class="quiet danger-text">
           Eliminar conversación actual</button
@@ -417,7 +428,7 @@
       </section>
       <small id="settingsStatus" role="status"
         >Los ajustes se guardan en este teléfono.</small
-      ><small class="version">AI Local · 2.3</small>
+      ><small class="version">AI Local · 2.4</small>
     </dialog>
     <dialog
       id="modelPicker"

@@ -95,19 +95,15 @@ let state = { models: [], installed: [], ram: 0, available: 0 },
 let operationStatus = "",
   operationStarted = 0,
   busyTimer = null,
-  chatFailure = current.pending
-    ? {
-        action: "chat",
-        message:
-          "La respuesta anterior se interrumpió. Puedes reintentar tu mensaje.",
-      }
-    : current.failure || null,
+  chatFailure = current.failure || null,
   operationStopped = false;
 let resumeAfterLoad = false;
-if (current.pending) {
-  current.pending = false;
-  current.failure = chatFailure;
-}
+let recoveringPending = !!current.pending,
+  loadRequestId = "";
+const handledNativeJobs = new Set();
+let nativeInstance = "",
+  nativeRevision = -1,
+  latestInference = null;
 const downloads = new Map();
 $("contextTokens").value = String(prefs.context);
 $("responseTokens").value = String(prefs.response);
@@ -309,11 +305,17 @@ function beginLoad(model) {
   if (running) return toast("Hay una respuesta o carga en curso.");
   if ($("modelPicker").open) $("modelPicker").close();
   loadingModelId = model.id;
+  loadRequestId = makeId();
   chatFailure = null;
   setBusy(true, "load");
   toast("Cargando " + model.name + "…");
   updateHeader();
-  command("load", { id: model.id, context: contextFor(model) });
+  command("load", {
+    id: model.id,
+    context: contextFor(model),
+    requestId: loadRequestId,
+    sessionId: current.id,
+  });
   page("chat");
 }
 function loadDefault() {
@@ -472,17 +474,27 @@ function renderChat() {
     error.append(el("p", "", chatFailure.message));
     const actions = el("div", "message-actions");
     const failed = { ...chatFailure };
-    if (failed.action === "load" || messages.at(-1)?.role === "user") {
+    if (
+      failed.action === "load" ||
+      messages.at(-1)?.role === "user" ||
+      messages.at(-1)?.incomplete
+    ) {
       const retry = el("button", "quiet retry-operation", "Reintentar");
       retry.onclick = () => {
         if (failed.action === "load") {
           const model = state.models.find((m) => m.id === failed.modelId);
           if (model) beginLoad(model);
           else openPicker();
-        } else if (state.active) startChat();
-        else {
-          resumeAfterLoad = true;
-          loadDefault();
+        } else {
+          if (messages.at(-1)?.incomplete) {
+            messages.pop();
+            persist();
+          }
+          if (state.active) startChat();
+          else {
+            resumeAfterLoad = true;
+            loadDefault();
+          }
         }
       };
       actions.append(retry);
@@ -554,11 +566,14 @@ function startChat() {
   chatFailure = null;
   current.failure = null;
   current.pending = true;
+  current.requestId = makeId();
   persist();
   answer = "";
   setBusy(true, "chat");
   renderChat();
   command("chat", {
+    requestId: current.requestId,
+    sessionId: current.id,
     maxTokens: Number($("responseTokens").value) || 512,
     messages: [
       {
@@ -938,6 +953,154 @@ $("save").onclick = () => {
   );
 };
 
+function applyInference(data) {
+  if (data.instanceId) {
+    if (nativeInstance === data.instanceId && data.revision < nativeRevision) {
+      state.active = latestInference.active;
+      state.activeContext = latestInference.activeContext;
+      state.inference = latestInference;
+      updateHeader();
+      return;
+    }
+    nativeInstance = data.instanceId;
+    nativeRevision = data.revision;
+  }
+  latestInference = data;
+  state.active = data.active || "";
+  state.activeContext = data.activeContext || 0;
+  state.inference = data;
+  $("unloadModel").disabled = !state.active || data.busy;
+  $("backgroundStatus").textContent = state.active
+    ? "El modelo se mantiene en segundo plano. Usa la notificación para volver o detener la respuesta."
+    : "Al cargar un modelo, la app lo mantiene con una notificación y continúa las respuestas al cambiar de aplicación.";
+  const job = data.job || {},
+    rejected = data.rejection || {};
+  if (
+    rejected.id &&
+    rejected.id === current.requestId &&
+    !handledNativeJobs.has(rejected.id)
+  ) {
+    handledNativeJobs.add(rejected.id);
+    receive("operationError", {
+      action: rejected.action,
+      message: rejected.message,
+    });
+    receive("done", false);
+  }
+  if (recoveringPending) {
+    recoveringPending = false;
+    if (job.id !== current.requestId || !job.sessionId) {
+      current.pending = false;
+      chatFailure = current.failure = {
+        action: "chat",
+        message:
+          "La respuesta anterior se interrumpió. Puedes reintentar tu mensaje.",
+      };
+      persist();
+      setBusy(false);
+    }
+  }
+  const target = store.sessions.find((s) => s.id === job.sessionId);
+  const conflicting =
+    target?.pending && target.requestId && target.requestId !== job.id;
+  if (job.id && !conflicting) {
+    if (
+      job.status === "running" &&
+      !handledNativeJobs.has(job.id) &&
+      target?.appliedRequestId !== job.id
+    ) {
+      if (job.action === "chat" && target) {
+        if (current !== target) {
+          current = target;
+          messages = current.messages;
+          conversationModel = current.modelId || state.active;
+        }
+        current.pending = true;
+        current.requestId = job.id;
+        chatFailure = current.failure = null;
+        answer = job.answer || "";
+      }
+      if (job.action === "load") loadingModelId = job.modelId;
+      if (!running || operationKind !== job.action) setBusy(true, job.action);
+      operationStarted = job.startedAt || Date.now();
+      if (job.progress)
+        receive("progress", { ...job.progress, action: job.action });
+      renderChat();
+    } else if (!handledNativeJobs.has(job.id)) {
+      handledNativeJobs.add(job.id);
+      if (
+        job.action === "chat" &&
+        target &&
+        target.appliedRequestId !== job.id
+      ) {
+        target.requestId = job.id;
+        target.appliedRequestId = job.id;
+        const failure = job.error
+          ? { action: "chat", message: job.error, modelId: job.modelId }
+          : null;
+        if (current === target) {
+          if (!running || operationKind !== "chat") setBusy(true, "chat");
+          answer = job.answer || "";
+          chatFailure = failure;
+          if (job.metrics) receive("metrics", job.metrics);
+          receive("done", job.status === "success");
+          if (
+            job.status !== "success" &&
+            messages.at(-1)?.role === "assistant"
+          ) {
+            messages.at(-1).incomplete = true;
+            persist();
+            renderChat();
+          }
+        } else {
+          if (job.answer?.trim())
+            target.messages.push({
+              role: "assistant",
+              content: job.answer,
+              incomplete: job.status !== "success",
+            });
+          target.pending = false;
+          target.failure = failure;
+          target.updatedAt = Date.now();
+          saveConversations();
+          renderHistory();
+        }
+      } else if (job.action === "load") {
+        if (
+          job.status === "success" &&
+          state.active &&
+          (operationKind === "load" || loadRequestId === job.id)
+        )
+          receive("loaded", state.active);
+        else if (
+          job.status !== "success" &&
+          (operationKind === "load" || loadRequestId === job.id)
+        ) {
+          receive("operationError", {
+            action: "load",
+            message: job.error || "La carga se interrumpió.",
+          });
+          receive("done", false);
+        }
+      } else if (job.action === "delete" && operationKind === "delete") {
+        if (job.error) toast(job.error, true);
+        setBusy(false);
+      }
+    }
+  }
+  if (data.releasing) {
+    if (!running) setBusy(true, "unload");
+  } else if (!data.busy && operationKind === "unload") setBusy(false);
+  updateHeader();
+  renderPicker();
+  renderChat();
+}
+$("unloadModel").onclick = () => {
+  if (running || !state.active) return;
+  setBusy(true, "unload");
+  command("unload");
+};
+
 window.receive = (type, data) => {
   switch (type) {
     case "state": {
@@ -962,17 +1125,21 @@ window.receive = (type, data) => {
       renderPicker();
       renderDefaultOptions();
       updateHeader();
+      if (data.inference) applyInference(data.inference);
       if (typeof data.systemDark === "boolean") {
         nativeSystemDark = data.systemDark;
         if (prefs.mode === "system") applyTheme();
       }
       if (!autoLoadAttempted) {
         autoLoadAttempted = true;
-        if (prefs.autoLoad && prefs.defaultModel && !state.active)
+        if (prefs.autoLoad && prefs.defaultModel && !state.active && !running)
           loadDefault();
       }
       break;
     }
+    case "inference":
+      applyInference(data);
+      break;
     case "resources":
       state = { ...state, ...data };
       renderResources(state);
@@ -1079,7 +1246,7 @@ window.receive = (type, data) => {
       renderChat();
       break;
     case "idle":
-      if (running && operationKind !== "delete") break;
+      if (running && !["delete", "unload"].includes(operationKind)) break;
       loadingModelId = "";
       setBusy(false);
       break;
@@ -1408,6 +1575,11 @@ applyTheme();
 updateProfile();
 renderHistory();
 renderChat();
+if (recoveringPending) {
+  setBusy(true, "chat");
+  operationStatus = "Recuperando respuesta…";
+  renderChat();
+}
 renderModels();
 renderPicker();
 page("chat");

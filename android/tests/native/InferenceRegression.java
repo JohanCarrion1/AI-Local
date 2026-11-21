@@ -41,7 +41,7 @@ public class InferenceRegression {
             "dato ".repeat(160) + "\nResponde solo con el número: 2+2=",
             8,
             (phase, current, total) -> {
-              if (phase.equals("prompt") && current == 128 && total > 128)
+              if (phase.equals("prompt") && current >= 128 && current < total)
                 multipleBatches[0] = true;
             });
     if (!multipleBatches[0] || longAnswer.isBlank()) throw new AssertionError("Batch regression");
@@ -50,7 +50,7 @@ public class InferenceRegression {
         "dato ".repeat(160),
         8,
         (phase, current, total) -> {
-          if (phase.equals("prompt") && current == 0) Engine.stop();
+          if (phase.equals("prompt")) Engine.stop();
         });
     if (!Engine.stats().contains("\"cancelled\":true"))
       throw new AssertionError("Cancellation ignored");

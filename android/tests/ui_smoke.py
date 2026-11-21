@@ -113,7 +113,9 @@ with sync_playwright() as p:
     page.locator('[data-filter="powerful"]').click()
     # Changing context causes a real reload; an estimate never adds a benchmark gate.
     page.locator('[data-model="qwen7"] .actions button').click()
-    assert page.evaluate('calls.at(-1)')==['load',{'id':'qwen7','context':2048}]
+    call=page.evaluate('calls.at(-1)')
+    assert call[0]=='load' and call[1]['id']=='qwen7' and call[1]['context']==2048
+    assert call[1]['requestId'] and call[1]['sessionId']==page.evaluate('current.id')
     assert not page.locator('#confirm').is_visible()
     page.evaluate('receive("error","No se pudo cargar");receive("done",false);receive("idle",true)')
     assert page.evaluate('messages.length')==2, 'A load failure must not erase a saved conversation'
@@ -201,6 +203,7 @@ with sync_playwright() as p:
     assert recovery.locator('.retry-operation').is_visible()
     recovery.locator('.retry-operation').click()
     recovery.reload();recovery.evaluate('(s)=>receive("state",s)',unloaded)
+    recovery.evaluate('receive("inference",{active:"",activeContext:0,busy:false,job:{}})')
     assert 'se interrumpió' in recovery.locator('.operation-error').inner_text()
     recovery.locator('.retry-operation').click()
     assert recovery.evaluate('calls.at(-1)[0]')=='load'
@@ -225,6 +228,38 @@ with sync_playwright() as p:
     assert recovery.locator('#chatHint').inner_text()=='1024 contexto · 3.5 tokens/s'
     settings(recovery);recovery.locator('#showStats').uncheck();recovery.locator('#closeSettings').click()
     assert not recovery.locator('#chatHint').is_visible()
+
+    # Activity/WebView reload attaches to the real native job instead of declaring interruption.
+    bg=browser.new_page(viewport={'width':390,'height':844})
+    bg.add_init_script('window.calls=[];window.Native={command:(a,d)=>calls.push([a,JSON.parse(d)])};')
+    bg.goto('http://127.0.0.1:8765');bg.evaluate('(s)=>receive("state",s)',state)
+    bg.locator('#prompt').fill('Sigue trabajando cuando cambie de app');bg.locator('#send').click()
+    req=bg.evaluate('calls.at(-1)[1]')
+    assert req['sessionId']==bg.evaluate('current.id') and req['requestId']
+    job=dict(id=req['requestId'],sessionId=req['sessionId'],action='chat',status='running',modelId='qwen7',answer='Respuesta en curso',startedAt=1780000000000,progress=dict(phase='generate',current=0,total=512))
+    live=dict(active='qwen7',activeContext=1024,busy=True,foreground=True,instanceId='service-a',revision=1,job=job)
+    bg.evaluate('(s)=>receive("inference",s)',live)
+    bg.reload();bg.evaluate('(s)=>receive("state",s)',{**state,'inference':live})
+    assert not bg.locator('.operation-error').count()
+    assert bg.locator('.streaming').inner_text()=='Respuesta en curso'
+    complete={**live,'busy':False,'revision':2,'job':{**job,'status':'success','answer':'Respuesta completa en segundo plano.'}}
+    bg.evaluate('(s)=>receive("inference",s)',complete)
+    assert bg.locator('.bubble.assistant').count()==1
+    bg.reload();bg.evaluate('(s)=>receive("state",s)',{**state,'inference':complete})
+    assert bg.locator('.bubble.assistant').count()==1, 'A completed native response is imported exactly once'
+    bg.evaluate('(s)=>receive("inference",s)',live)
+    assert not bg.evaluate('running'), 'A delayed running snapshot cannot overwrite completion'
+    assert bg.locator('.bubble.assistant').count()==1
+    bg.locator('#prompt').fill('Segundo mensaje');bg.locator('#send').click()
+    req2=bg.evaluate('calls.at(-1)[1]')
+    interrupted={**live,'active':'','busy':False,'revision':3,'job':{**job,'id':req2['requestId'],'status':'interrupted','answer':'Una parte recuperada.','error':'Android interrumpió la ejecución anterior.'}}
+    bg.evaluate('(s)=>receive("inference",s)',interrupted)
+    assert 'Una parte recuperada.' in bg.locator('#messages').inner_text()
+    assert bg.locator('.retry-operation').is_visible()
+    assert bg.evaluate('messages.at(-1).incomplete')
+    bg.locator('.retry-operation').click()
+    assert bg.evaluate('calls.at(-1)[0]')=='load'
+    assert bg.evaluate('messages.at(-1).role')=='user', 'Retry replaces the partial attempt, without duplicating the user'
 
     # Upgrade migration from the 2.2 single-chat store preserves the original messages.
     legacy=browser.new_page(viewport={'width':360,'height':760})

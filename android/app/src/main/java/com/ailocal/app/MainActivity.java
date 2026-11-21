@@ -24,8 +24,6 @@ public class MainActivity extends Activity {
   private WebView web;
   private JSONArray models;
   private final ExecutorService io = Executors.newSingleThreadExecutor();
-  // Native llama state is process-wide; serialize Activity teardown and subsequent loads.
-  private static final ExecutorService inference = Executors.newSingleThreadExecutor();
   private android.content.SharedPreferences prefs;
   private DownloadManager dm;
   private volatile String active = "", token = "";
@@ -33,6 +31,42 @@ public class MainActivity extends Activity {
   private volatile byte[] image;
   private int imageWidth, imageHeight;
   private volatile boolean busy = false;
+  private String clearedImageJob = "";
+  private volatile InferenceService inferenceService;
+  private boolean bound, visible;
+  private final InferenceService.Listener inferenceListener =
+      state -> {
+        active = state.optString("active");
+        activeContext = state.optInt("activeContext");
+        busy = state.optBoolean("busy");
+        JSONObject job = state.optJSONObject("job");
+        if (job != null
+            && "chat".equals(job.optString("action"))
+            && !"running".equals(job.optString("status"))
+            && !clearedImageJob.equals(job.optString("id"))) {
+          clearedImageJob = job.optString("id");
+          image = null;
+          event("image", false);
+        }
+        event("inference", state);
+      };
+  private final ServiceConnection serviceConnection =
+      new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder binder) {
+          inferenceService = ((InferenceService.LocalBinder) binder).service();
+          if (visible) inferenceService.listen(inferenceListener);
+          snapshot();
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+          inferenceService = null;
+          active = "";
+          activeContext = 0;
+          busy = false;
+        }
+      };
   private boolean destroyed = false;
   private String interruptedLoad = "";
   private final Handler handler = new Handler(Looper.getMainLooper());
@@ -144,31 +178,21 @@ public class MainActivity extends Activity {
         });
     web.addJavascriptInterface(new Bridge(), "Native");
     web.loadUrl("https://appassets.androidplatform.net/assets/index.html");
-    handler.post(ticker);
+    bound =
+        bindService(new Intent(this, InferenceService.class), serviceConnection, BIND_AUTO_CREATE);
   }
 
   private void event(String type, Object data) {
     try {
       String js =
-          "window.receive.apply(null," + new JSONArray().put(type).put(data).toString() + ")";
+          "window.receive && window.receive.apply(null,"
+              + new JSONArray().put(type).put(data).toString()
+              + ")";
       runOnUiThread(
           () -> {
             if (!destroyed) web.evaluateJavascript(js, null);
           });
     } catch (Exception ignored) {
-    }
-  }
-
-  private void reportProgress(String action, String phase, int current, int total) {
-    try {
-      event(
-          "progress",
-          new JSONObject()
-              .put("action", action)
-              .put("phase", phase)
-              .put("current", current)
-              .put("total", total));
-    } catch (JSONException ignored) {
     }
   }
 
@@ -270,7 +294,10 @@ public class MainActivity extends Activity {
         }
       }
       s.put("usage", usage);
+      InferenceService service = inferenceService;
+      if (service != null) s.put("inference", service.snapshot());
       event("state", s);
+      if (service != null) event("inference", service.snapshot());
     } catch (Exception e) {
       event("error", e.getMessage());
     }
@@ -473,7 +500,7 @@ public class MainActivity extends Activity {
     @JavascriptInterface
     public void command(String action, String payload) {
       if (action.equals("stop")) {
-        Engine.stop();
+        if (inferenceService != null) inferenceService.stopGeneration();
         return;
       }
       if (action.equals("image")) {
@@ -491,135 +518,37 @@ public class MainActivity extends Activity {
             });
         return;
       }
-      if (action.equals("chat") || action.equals("load") || action.equals("delete")) {
-        synchronized (MainActivity.this) {
-          if (busy) {
-            event("error", "Hay una operación del modelo en curso.");
-            return;
-          }
-          busy = true;
-        }
-        inference.execute(
+      if (action.equals("unload")) {
+        runOnUiThread(
             () -> {
-              boolean succeeded = false;
+              if (inferenceService != null) inferenceService.releaseModel();
+            });
+        return;
+      }
+      if (action.equals("chat") || action.equals("load") || action.equals("delete")) {
+        runOnUiThread(
+            () -> {
               try {
-                JSONObject p = new JSONObject(payload);
                 if (action.equals("load")) {
-                  JSONObject m = model(p.getString("id"));
-                  if (!installed(m)) throw new IOException("Primero descarga el modelo completo.");
-                  active = "";
-                  activeContext = 0;
-                  Engine.unload();
-                  JSONObject resources = resourceSample();
-                  event("resources", resources);
-                  // Estimates inform the user; native allocation decides whether loading succeeds.
-                  int context =
-                      Math.max(
-                          m.getBoolean("vision") ? 2048 : 512,
-                          Math.min(4096, p.optInt("context", 1024)));
-                  prefs
-                      .edit()
-                      .putString(
-                          "pendingLoad",
-                          new JSONObject()
-                              .put("id", m.getString("id"))
-                              .put("pid", android.os.Process.myPid())
-                              .put("context", context)
-                              .toString())
-                      .commit();
-                  JSONArray fs = m.getJSONArray("files");
-                  Engine.loadNative(
-                      file(fs.getJSONObject(0)).getPath(),
-                      m.getBoolean("vision") ? file(fs.getJSONObject(1)).getPath() : "",
-                      Math.max(1, Math.min(4, Runtime.getRuntime().availableProcessors() - 1)),
-                      context,
-                      (phase, current, total) -> reportProgress("load", phase, current, total));
-                  JSONObject profile = new JSONObject(Engine.stats());
-                  if (!profile.getBoolean("compactKv"))
-                    event("notice", "Este modelo usa caché F16; el motor no aceptó K en Q8.");
-                  prefs.edit().remove("pendingLoad").apply();
-                  active = m.getString("id");
-                  activeContext = context;
                   image = null;
                   event("image", false);
-                } else if (action.equals("delete")) {
-                  JSONObject m = model(p.getString("id"));
-                  if (active.equals(m.getString("id"))) {
-                    Engine.unload();
-                    active = "";
-                    activeContext = 0;
-                  }
-                  cancelDownload(m.getString("id"));
-                  JSONArray fs = m.getJSONArray("files");
-                  for (int i = 0; i < fs.length(); i++) {
-                    file(fs.getJSONObject(i)).delete();
-                    ready(fs.getJSONObject(i)).delete();
-                  }
-                  snapshot();
-                } else {
-                  if (active.isEmpty()) throw new IOException("Carga un modelo en la Biblioteca.");
-                  JSONArray history = p.getJSONArray("messages");
-                  if (history.length() > 40)
-                    throw new IOException("Inicia una conversación nueva.");
-                  String[] roles = new String[history.length()],
-                      texts = new String[history.length()];
-                  for (int i = 0; i < history.length(); i++) {
-                    roles[i] = history.getJSONObject(i).getString("role");
-                    texts[i] = history.getJSONObject(i).getString("content");
-                  }
-                  double[] peakPss = {android.os.Debug.getPss() / 1024.0};
-                  int[] tokenSamples = {0};
-                  ByteArrayOutputStream output = new ByteArrayOutputStream();
-                  Engine.generateNative(
-                      roles,
-                      texts,
-                      image,
-                      imageWidth,
-                      imageHeight,
-                      Math.max(1, Math.min(2048, p.optInt("maxTokens", 512))),
-                      bytes -> {
-                        output.write(bytes, 0, bytes.length);
-                        if (++tokenSamples[0] % 8 == 0)
-                          peakPss[0] = Math.max(peakPss[0], android.os.Debug.getPss() / 1024.0);
-                        event("answer", new String(output.toByteArray(), StandardCharsets.UTF_8));
-                      },
-                      (phase, current, total) -> reportProgress("chat", phase, current, total));
-                  JSONObject measured = new JSONObject(Engine.stats());
-                  if (output.toString(StandardCharsets.UTF_8.name()).trim().isEmpty()
-                      && !measured.optBoolean("cancelled"))
-                    throw new IOException(
-                        "El modelo terminó sin devolver texto. Reintenta el mensaje o vuelve a"
-                            + " cargar el modelo.");
-                  int tokens = measured.getInt("generatedTokens");
-                  JSONObject result =
-                      new JSONObject()
-                          .put("id", active)
-                          .put("context", measured.getInt("context"))
-                          .put("compactKv", measured.getBoolean("compactKv"))
-                          .put("tokens", tokens)
-                          .put("generationMs", measured.getDouble("generationMs"))
-                          .put(
-                              "tps",
-                              tokens * 1000.0 / Math.max(1, measured.getDouble("generationMs")))
-                          .put(
-                              "peakPssMiB",
-                              Math.max(peakPss[0], android.os.Debug.getPss() / 1024.0))
-                          .put("stopped", measured.optBoolean("cancelled"));
-                  prefs
-                      .edit()
-                      .putString("usage_" + active + "_" + activeContext, result.toString())
-                      .apply();
-                  event("metrics", result);
-                  image = null;
                 }
-                succeeded = true;
-              } catch (Throwable e) {
-                if (action.equals("load")) {
-                  prefs.edit().remove("pendingLoad").apply();
-                  Engine.unload();
-                  active = "";
-                  activeContext = 0;
+                InferenceService.enqueue(
+                    MainActivity.this,
+                    action,
+                    new JSONObject(payload),
+                    image,
+                    imageWidth,
+                    imageHeight);
+                if (Build.VERSION.SDK_INT >= 33
+                    && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
+                        != android.content.pm.PackageManager.PERMISSION_GRANTED
+                    && !prefs.getBoolean("notificationAsked", false)) {
+                  prefs.edit().putBoolean("notificationAsked", true).apply();
+                  requestPermissions(
+                      new String[] {android.Manifest.permission.POST_NOTIFICATIONS}, 12);
                 }
+              } catch (Exception e) {
                 try {
                   event(
                       "operationError",
@@ -627,17 +556,12 @@ public class MainActivity extends Activity {
                           .put("action", action)
                           .put(
                               "message",
-                              e.getMessage() == null ? "Error del motor local" : e.getMessage()));
+                              e.getMessage() == null
+                                  ? "No se pudo iniciar el servicio local"
+                                  : e.getMessage()));
                 } catch (JSONException ignored) {
                 }
-              } finally {
-                // Publish completion only after the native worker is ready for another command.
-                // A trailing generic idle event used to reset a newly started operation.
-                busy = false;
-                snapshot();
-                if (action.equals("load") && succeeded) event("loaded", active);
-                else if (action.equals("chat") || action.equals("load")) event("done", succeeded);
-                else event("idle", true);
+                event("done", false);
               }
             });
         return;
@@ -837,11 +761,31 @@ public class MainActivity extends Activity {
   }
 
   @Override
+  protected void onStart() {
+    super.onStart();
+    visible = true;
+    handler.post(ticker);
+    if (inferenceService != null) inferenceService.listen(inferenceListener);
+  }
+
+  @Override
+  protected void onStop() {
+    visible = false;
+    handler.removeCallbacks(ticker);
+    if (inferenceService != null) inferenceService.unlisten(inferenceListener);
+    super.onStop();
+  }
+
+  @Override
   protected void onDestroy() {
     destroyed = true;
     handler.removeCallbacks(ticker);
-    Engine.stop();
-    inference.execute(() -> Engine.unload());
+    if (inferenceService != null) inferenceService.unlisten(inferenceListener);
+    if (bound) {
+      unbindService(serviceConnection);
+      bound = false;
+    }
+    inferenceService = null;
     io.shutdown();
     web.destroy();
     super.onDestroy();
