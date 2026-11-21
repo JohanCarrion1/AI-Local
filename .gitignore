@@ -58,3 +58,8 @@ dist/
 tmp/
 temp/
 # Trigger build
+
+# Native Android
+.gradle/
+.cxx/
+local.properties

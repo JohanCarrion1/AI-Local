@@ -10,17 +10,18 @@ For mobile: Kivy native interface
 """
 
 import sys
+import os
 import platform
 
 
 def is_mobile():
     """Check if running on mobile (Android)."""
     # Check for Android
-    if 'ANDROID_ROOT' in sys.environ or 'ANDROID_DATA' in sys.environ:
+    if 'ANDROID_ROOT' in os.environ or 'ANDROID_DATA' in os.environ:
         return True
     
     # Check for Termux
-    if 'PREFIX' in sys.environ and '/data/data/com.termux' in sys.environ.get('PREFIX', ''):
+    if 'PREFIX' in os.environ and '/data/data/com.termux' in os.environ.get('PREFIX', ''):
         return True
     
     # Check platform
