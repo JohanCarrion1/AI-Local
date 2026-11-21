@@ -243,7 +243,7 @@ public class InferenceService extends Service {
       status = job.optString("status");
       JSONObject progress = job.optJSONObject("progress");
       phase = progress == null ? "" : progress.optString("phase");
-      modelName = job.optString("modelName", "AI Local");
+      modelName = job.optString("modelName", "Auren");
     }
     String text =
         busy
@@ -258,7 +258,7 @@ public class InferenceService extends Service {
     Notification.Builder notification =
         new Notification.Builder(this, CHANNEL)
             .setSmallIcon(com.ailocal.app.R.drawable.ic_launcher)
-            .setContentTitle("AI Local · " + modelName)
+            .setContentTitle("Auren · " + modelName)
             .setContentText(text)
             .setContentIntent(open)
             .setOngoing(true)
@@ -356,6 +356,17 @@ public class InferenceService extends Service {
       set("status", "running");
       set("startedAt", System.currentTimeMillis());
       set("answer", "");
+      JSONObject workspace = request.optJSONObject("workspace");
+      if (workspace != null) {
+        JSONObject reference = new JSONObject();
+        for (String key : new String[] {"repo", "branch", "path", "sha"})
+          try {
+            reference.put(key, ChatContext.redact(workspace.optString(key)));
+          } catch (JSONException e) {
+            throw new IllegalStateException(e);
+          }
+        set("workspace", reference);
+      }
     }
     worker.execute(
         () -> {

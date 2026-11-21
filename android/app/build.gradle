@@ -8,8 +8,8 @@ android {
         minSdk 26
         targetSdk 35
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-        versionCode 7
-        versionName '2.4.0'
+        versionCode 8
+        versionName '2.5.0'
         ndk { abiFilters (project.findProperty('testAbi') ?: 'arm64-v8a') }
         externalNativeBuild { cmake { arguments '-DANDROID_STL=c++_shared'; cppFlags '-std=c++17' } }
     }
@@ -24,6 +24,7 @@ dependencies {
     implementation 'androidx.webkit:webkit:1.12.1'
     implementation 'androidx.core:core:1.15.0'
     testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.json:json:20240303'
     androidTestImplementation 'androidx.test:runner:1.6.2'
     androidTestImplementation 'androidx.test:rules:1.6.1'
     androidTestImplementation 'androidx.test.ext:junit:1.2.1'

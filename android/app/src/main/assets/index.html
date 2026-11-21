@@ -10,7 +10,7 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'"
     />
-    <title>AI Local</title>
+    <title>Auren</title>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
@@ -31,7 +31,7 @@
           class="model-switch"
           aria-label="Elegir modelo"
         >
-          <strong id="activeModel">AI Local</strong
+          <strong id="activeModel">Auren</strong
           ><span id="modelState"
             >Elegir modelo <span aria-hidden="true">⌄</span></span
           ></button
@@ -45,6 +45,20 @@
         <section id="chat" class="page chat-page" aria-label="Chat">
           <div id="messages" class="empty-state" aria-live="polite"></div>
           <div class="composer-area">
+            <div id="workspaceContext" class="workspace-context hidden">
+              <button
+                id="workspaceLabel"
+                class="quiet"
+                aria-label="Ver archivo de GitHub en contexto"
+              ></button>
+              <button
+                id="removeWorkspace"
+                class="quiet"
+                aria-label="Quitar archivo del contexto"
+              >
+                ×
+              </button>
+            </div>
             <div id="attachment" class="attachment hidden">
               <span>Imagen adjunta</span
               ><button id="removeImage" class="quiet">Quitar</button>
@@ -145,6 +159,9 @@
               <button id="connect" class="primary">Conectar cuenta</button
               ><button id="disconnect" class="quiet">Desconectar</button>
             </div>
+            <button id="createToken" class="quiet">
+              Crear un token en GitHub ↗
+            </button>
             <small id="connection"
               >El token se cifra con Android Keystore. Nunca se envía al
               modelo.</small
@@ -177,7 +194,7 @@
                 rows="14"
               ></textarea
               ><button id="askFile" class="secondary">
-                Consultar este archivo con la IA</button
+                Usar archivo en el chat</button
               ><label for="commit">Mensaje del commit</label
               ><input id="commit" placeholder="Describe el cambio" /><button
                 id="save"
@@ -207,7 +224,7 @@
       aria-label="Menú principal"
     >
       <div class="drawer-heading">
-        <span class="wordmark">AI Local<span class="brand-dot">✦</span></span
+        <span class="wordmark">Auren<span class="brand-dot">✦</span></span
         ><button id="closeDrawer" class="icon-button" aria-label="Cerrar menú">
           <svg viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18" /></svg>
         </button>
@@ -428,7 +445,7 @@
       </section>
       <small id="settingsStatus" role="status"
         >Los ajustes se guardan en este teléfono.</small
-      ><small class="version">AI Local · 2.4</small>
+      ><small class="version">Auren · 2.5</small>
     </dialog>
     <dialog
       id="modelPicker"
