@@ -421,6 +421,7 @@ function openGitHubSetup(workspace = null) {
   } else $("repoSelect").focus();
 }
 function wantsGitHubSetup(text) {
+  text = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   return (
     /\bgit\s*hub\b/i.test(text) &&
     /\b(conect\w*|vincul\w*|token|cuenta|acces\w*|repo(?:sitorio)?s?|edit\w*|modific\w*)\b/i.test(

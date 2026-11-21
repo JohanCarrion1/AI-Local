@@ -266,7 +266,7 @@ with sync_playwright() as p:
     git=browser.new_page(viewport={'width':390,'height':844})
     git.add_init_script('window.calls=[];window.Native={command:(a,d)=>calls.push([a,JSON.parse(d)])};')
     git.goto('http://127.0.0.1:8765');git.evaluate('(s)=>receive("state",s)',unloaded)
-    git.locator('#prompt').fill('Puedes estar conectado a git hub? Necesito que me edites un código')
+    git.locator('#prompt').fill('Conéctate a GitHub; necesito que edites un código.')
     git.locator('#send').click()
     assert git.locator('.github-setup').inner_text()=='Conectar GitHub'
     assert not git.evaluate('calls.some(c=>c[0]==="chat" || c[0]==="load")')
@@ -291,7 +291,7 @@ with sync_playwright() as p:
     git.locator('#prompt').fill('Cambia x a 2 y entrega el archivo completo');git.locator('#send').click()
     payload=git.evaluate('calls.at(-1)[1]')
     assert payload['workspace']==dict(repo='owner/repo',branch='dev',path='main.js',sha='v1',text='const x = 1;')
-    assert not any(m['content'].startswith('Puedes estar conectado') for m in payload['messages'])
+    assert not any('Conéctate a GitHub' in m['content'] for m in payload['messages'])
     deliver(git,'Aquí está el archivo:\n```js\nconst x = 2;\n```')
     git.locator('.to-github').last.click();git.locator('#confirmYes').click()
     assert git.locator('#editor').input_value()=='const x = 2;'
