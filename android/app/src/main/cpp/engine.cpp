@@ -24,14 +24,15 @@ extern "C" JNIEXPORT void JNICALL Java_com_ailocal_app_Engine_unload(JNIEnv *,jc
 }
 extern "C" JNIEXPORT void JNICALL Java_com_ailocal_app_Engine_load(JNIEnv * e,jclass c,jstring path,jstring projector,jint threads,jint context) {
     cancelled=false; Java_com_ailocal_app_Engine_unload(e,c); llama_backend_init();
-    auto mp=llama_model_default_params(); mp.n_gpu_layers=0; mp.load_mode=LLAMA_LOAD_MODE_MMAP; mp.progress_callback=[](float,void*){return !cancelled.load();};
+    // Avoid an extra repacked copy of weights on memory-constrained phones.
+    auto mp=llama_model_default_params(); mp.n_gpu_layers=0; mp.load_mode=LLAMA_LOAD_MODE_MMAP; mp.use_extra_bufts=false; mp.progress_callback=[](float,void*){return !cancelled.load();};
     model=llama_model_load_from_file(str(e,path).c_str(),mp);
     if(!model) { fail(e,cancelled?"Carga detenida.":"No se pudo abrir el GGUF. Comprueba el archivo y la RAM disponible."); return; }
     auto cp=llama_context_default_params(); cp.n_ctx=std::max(512,std::min(4096,(int)context)); cp.n_batch=128; cp.n_ubatch=64; cp.type_k=GGML_TYPE_Q8_0; cp.type_v=GGML_TYPE_F16; cp.n_threads=threads; cp.n_threads_batch=threads;
     compact_kv=true;
     ctx=llama_init_from_model(model,cp);
     if(!ctx) { cp.type_k=GGML_TYPE_F16; compact_kv=false; ctx=llama_init_from_model(model,cp); }
-    if(!ctx) { Java_com_ailocal_app_Engine_unload(e,c); fail(e,"RAM insuficiente para crear el contexto."); return; }
+    if(!ctx) { Java_com_ailocal_app_Engine_unload(e,c); fail(e,"El motor no pudo crear el contexto. Intenta un contexto menor."); return; }
     if(cancelled) { Java_com_ailocal_app_Engine_unload(e,c); fail(e,"Carga detenida."); return; }
     auto p=str(e,projector);
     if(!p.empty()) { auto vp=mtmd_context_params_default(); vp.use_gpu=false; vp.n_threads=threads; vp.image_max_tokens=512;

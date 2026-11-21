@@ -14,3 +14,7 @@ Text test asks 2 + 2 in Spanish; vision test feeds a synthetic red RGB image. St
 - SmolVLM: `The main color of the image is red.`
 
 These are host JNI smoke results, not device performance measurements or Android instrumentation tests. Android Downloads, Keystore and photo picking still require a phone/emulator integration test. The browser smoke uses a mock native bridge and does not write to real GitHub repositories.
+
+## 7B Q3 memory regression check (host CPU)
+
+Qwen2.5-Coder-7B-Instruct Q3_K_M was downloaded from the pinned catalog revision and SHA-256 verified. The production JNI engine loaded all model weights, created context 1024 with K Q8 / V F16, and answered `4` to 2+2. Linux peak RSS was 5,089,668 KiB with extra repacking buffers and 3,858,816 KiB with `use_extra_bufts=false`. The backend's extra `CPU_REPACK` allocation was 1,201.92 MiB; disabling it prioritizes memory over that acceleration. These are host measurements and not claims about any particular Android phone or long-running chat stability. Product loading opens ordinary chat directly; these engineering checks are not a prerequisite in the app.
