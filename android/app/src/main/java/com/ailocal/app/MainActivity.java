@@ -159,6 +159,19 @@ public class MainActivity extends Activity {
     }
   }
 
+  private void reportProgress(String action, String phase, int current, int total) {
+    try {
+      event(
+          "progress",
+          new JSONObject()
+              .put("action", action)
+              .put("phase", phase)
+              .put("current", current)
+              .put("total", total));
+    } catch (JSONException ignored) {
+    }
+  }
+
   private static byte[] read(InputStream in, int limit) throws IOException {
     try (InputStream stream = in;
         ByteArrayOutputStream out = new ByteArrayOutputStream()) {
@@ -488,6 +501,7 @@ public class MainActivity extends Activity {
         }
         inference.execute(
             () -> {
+              boolean succeeded = false;
               try {
                 JSONObject p = new JSONObject(payload);
                 if (action.equals("load")) {
@@ -514,21 +528,20 @@ public class MainActivity extends Activity {
                               .toString())
                       .commit();
                   JSONArray fs = m.getJSONArray("files");
-                  Engine.load(
+                  Engine.loadNative(
                       file(fs.getJSONObject(0)).getPath(),
                       m.getBoolean("vision") ? file(fs.getJSONObject(1)).getPath() : "",
                       Math.max(1, Math.min(4, Runtime.getRuntime().availableProcessors() - 1)),
-                      context);
+                      context,
+                      (phase, current, total) -> reportProgress("load", phase, current, total));
                   JSONObject profile = new JSONObject(Engine.stats());
                   if (!profile.getBoolean("compactKv"))
                     event("notice", "Este modelo usa caché F16; el motor no aceptó K en Q8.");
                   prefs.edit().remove("pendingLoad").apply();
                   active = m.getString("id");
                   activeContext = context;
-                  snapshot();
                   image = null;
                   event("image", false);
-                  event("loaded", active);
                 } else if (action.equals("delete")) {
                   JSONObject m = model(p.getString("id"));
                   if (active.equals(m.getString("id"))) {
@@ -557,7 +570,7 @@ public class MainActivity extends Activity {
                   double[] peakPss = {android.os.Debug.getPss() / 1024.0};
                   int[] tokenSamples = {0};
                   ByteArrayOutputStream output = new ByteArrayOutputStream();
-                  Engine.generate(
+                  Engine.generateNative(
                       roles,
                       texts,
                       image,
@@ -569,8 +582,14 @@ public class MainActivity extends Activity {
                         if (++tokenSamples[0] % 8 == 0)
                           peakPss[0] = Math.max(peakPss[0], android.os.Debug.getPss() / 1024.0);
                         event("answer", new String(output.toByteArray(), StandardCharsets.UTF_8));
-                      });
+                      },
+                      (phase, current, total) -> reportProgress("chat", phase, current, total));
                   JSONObject measured = new JSONObject(Engine.stats());
+                  if (output.toString(StandardCharsets.UTF_8.name()).trim().isEmpty()
+                      && !measured.optBoolean("cancelled"))
+                    throw new IOException(
+                        "El modelo terminó sin devolver texto. Reintenta el mensaje o vuelve a"
+                            + " cargar el modelo.");
                   int tokens = measured.getInt("generatedTokens");
                   JSONObject result =
                       new JSONObject()
@@ -592,22 +611,33 @@ public class MainActivity extends Activity {
                       .apply();
                   event("metrics", result);
                   image = null;
-                  event("done", true);
-                  snapshot();
                 }
+                succeeded = true;
               } catch (Throwable e) {
                 if (action.equals("load")) {
                   prefs.edit().remove("pendingLoad").apply();
                   Engine.unload();
                   active = "";
                   activeContext = 0;
-                  snapshot();
                 }
-                event("error", e.getMessage() == null ? "Error del motor local" : e.getMessage());
-                event("done", false);
+                try {
+                  event(
+                      "operationError",
+                      new JSONObject()
+                          .put("action", action)
+                          .put(
+                              "message",
+                              e.getMessage() == null ? "Error del motor local" : e.getMessage()));
+                } catch (JSONException ignored) {
+                }
               } finally {
+                // Publish completion only after the native worker is ready for another command.
+                // A trailing generic idle event used to reset a newly started operation.
                 busy = false;
-                event("idle", true);
+                snapshot();
+                if (action.equals("load") && succeeded) event("loaded", active);
+                else if (action.equals("chat") || action.equals("load")) event("done", succeeded);
+                else event("idle", true);
               }
             });
         return;

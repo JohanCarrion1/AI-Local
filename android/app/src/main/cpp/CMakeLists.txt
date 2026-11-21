@@ -1,5 +1,10 @@
 cmake_minimum_required(VERSION 3.22)
 project(ailocal LANGUAGES C CXX)
+# The installable development APK must run the same optimized CPU kernels as a
+# release. AGP's Debug default (-O0) makes multi-billion-parameter inference crawl.
+if(ANDROID)
+    add_compile_options(-O3)
+endif()
 include(FetchContent)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)

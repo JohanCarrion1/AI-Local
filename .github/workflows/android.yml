@@ -82,6 +82,24 @@ jobs:
       - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'ndk;28.0.13004108' 'cmake;3.22.1'
       - name: Build emulator test APKs
         run: ./android/gradlew -p android --no-daemon --max-workers=2 -PtestAbi=x86_64 assembleDebug assembleDebugAndroidTest
+      - name: Download and verify engineering inference fixture
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, time, urllib.request
+          from pathlib import Path
+          catalog = json.loads(Path('android/app/src/main/assets/models.json').read_text())
+          fixture = next(m for m in catalog if m['id'] == 'qwen05')['files'][0]
+          digest = hashlib.sha256()
+          path = Path(os.environ['RUNNER_TEMP']) / 'inference-fixture.gguf'
+          url = fixture['url'] + '?download=true&ci=' + str(time.time_ns())
+          with urllib.request.urlopen(url, timeout=120) as response, path.open('wb') as out:
+              while chunk := response.read(8 * 1024 * 1024):
+                  out.write(chunk)
+                  digest.update(chunk)
+          assert path.stat().st_size == fixture['size']
+          assert digest.hexdigest() == fixture['sha256']
+          print('Verified pinned GGUF for the real Android inference integration test')
+          PY
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -94,7 +112,11 @@ jobs:
           target: google_apis
           profile: pixel_6
           disable-animations: true
-          script: ./android/gradlew -p android --no-daemon --max-workers=2 -PtestAbi=x86_64 connectedDebugAndroidTest
+          script: |
+            ./android/gradlew -p android --no-daemon --max-workers=2 -PtestAbi=x86_64 installDebug
+            adb shell run-as com.ailocal.app mkdir -p files
+            adb shell 'run-as com.ailocal.app sh -c "cat > files/inference-fixture.gguf"' < "$RUNNER_TEMP/inference-fixture.gguf"
+            ./android/gradlew -p android --no-daemon --max-workers=2 -PtestAbi=x86_64 connectedDebugAndroidTest
       - uses: actions/upload-artifact@v4
         if: always()
         with:
