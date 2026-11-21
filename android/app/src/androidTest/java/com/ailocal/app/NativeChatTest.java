@@ -62,6 +62,12 @@ public class NativeChatTest {
 
   @Test
   public void downloadedModelAnswersThroughActualBridgeAndSurvivesLongPrompt() throws Exception {
+    assertEquals(
+        "Auren",
+        activity().getApplicationInfo().loadLabel(activity().getPackageManager()).toString());
+    assertTrue(
+        activity().getPackageManager().getApplicationIcon("com.ailocal.app")
+            instanceof android.graphics.drawable.AdaptiveIconDrawable);
     File fixture = new File(activity().getFilesDir(), "inference-fixture.gguf");
     assertTrue("CI must install its SHA-verified inference fixture", fixture.isFile());
     File model =
@@ -74,6 +80,17 @@ public class NativeChatTest {
     await("typeof window.receive === 'function'", 30);
     evaluate("Native.command('state','{}')");
     await("state.installed.includes('qwen05')", 30);
+    evaluate(
+        "newConversation();document.getElementById('prompt').value='Puedes estar conectado a git"
+            + " hub? Necesito que me edites un código';document.getElementById('send').click()");
+    assertEquals("true", evaluate("!running && !!document.querySelector('.github-setup')"));
+    evaluate("document.querySelector('.github-setup').click()");
+    assertEquals(
+        "true",
+        evaluate(
+            "!document.getElementById('github').classList.contains('hidden') &&"
+                + " document.activeElement.id==='token'"));
+    evaluate("page('chat');newConversation()");
     evaluate(
         "prefs.autoLoad=false;prefs.response=256;document.getElementById('responseTokens').value='256';"
             + "beginLoad(state.models.find(m=>m.id==='qwen05'))");

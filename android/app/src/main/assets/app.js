@@ -290,7 +290,7 @@ function updateHeader() {
   const m = state.models.find((m) => m.id === (loadingModelId || state.active));
   $("activeModel").textContent =
     currentPage === "chat"
-      ? m?.name || "AI Local"
+      ? m?.name || "Auren"
       : currentPage === "library"
         ? "Modelos"
         : "GitHub";
@@ -383,7 +383,104 @@ function renderDefaultOptions() {
   }
   select.value = prefs.defaultModel;
 }
+const githubTokenPattern =
+  /github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{20,}/g;
+function redactGitHubSecrets(text) {
+  return String(text).replace(githubTokenPattern, "[token de GitHub oculto]");
+}
+function workspaceReference(workspace) {
+  if (!workspace) return null;
+  return Object.fromEntries(
+    ["repo", "branch", "path", "sha"].map((key) => [
+      key,
+      String(workspace[key] || ""),
+    ]),
+  );
+}
+function sameWorkspace(a, b) {
+  return (
+    !!a && !!b && ["repo", "branch", "path"].every((key) => a[key] === b[key])
+  );
+}
+function openGitHubSetup(workspace = null) {
+  page("github");
+  if (!state.connected) $("token").focus();
+  else if (workspace) {
+    $("branch").value = workspace.branch;
+    $("filepath").value = workspace.path;
+    if ([...$("repoSelect").options].some((o) => o.value === workspace.repo))
+      $("repoSelect").value = workspace.repo;
+    else {
+      const option = el("option", "", workspace.repo);
+      option.value = workspace.repo;
+      option.dataset.branch = workspace.branch;
+      $("repoSelect").append(option);
+      $("repoSelect").value = workspace.repo;
+    }
+    $(sameWorkspace(opened, workspace) && fileSha ? "editor" : "read").focus();
+  } else $("repoSelect").focus();
+}
+function wantsGitHubSetup(text) {
+  text = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return (
+    /\bgit\s*hub\b/i.test(text) &&
+    /\b(conect\w*|vincul\w*|token|cuenta|acces\w*|repo(?:sitorio)?s?|edit\w*|modific\w*)\b/i.test(
+      text,
+    ) &&
+    !/\b(explica\w*|ejemplo\w*|implementa\w*|funci[oó]n|script|api|tutorial)\b/i.test(
+      text,
+    )
+  );
+}
+function githubGuide() {
+  const box = el("section", "github-guide");
+  box.append(
+    el("small", "", "GITHUB · INTEGRACIÓN DE AUREN"),
+    el(
+      "strong",
+      "",
+      state.connected
+        ? "Tu cuenta está configurada"
+        : "Conecta tu cuenta para empezar",
+    ),
+    el(
+      "p",
+      "",
+      state.connected
+        ? "Abre un repositorio y un archivo. Pulsa Usar archivo en el chat para pedir cambios, revisar la propuesta y guardar un commit."
+        : "Añade tu token en la pantalla GitHub. Después podrás abrir archivos, pedir cambios a la IA y revisarlos antes de guardarlos.",
+    ),
+  );
+  const button = el(
+    "button",
+    "secondary github-setup",
+    state.connected ? "Elegir archivo en GitHub" : "Conectar GitHub",
+  );
+  button.onclick = () => openGitHubSetup();
+  box.append(button);
+  return box;
+}
+function updateWorkspace() {
+  const workspace = current.workspace;
+  $("workspaceContext").classList.toggle("hidden", !workspace);
+  $("workspaceLabel").textContent = workspace
+    ? "GitHub · " + workspace.repo + "/" + workspace.path
+    : "";
+  $("workspaceLabel").title = workspace
+    ? workspace.branch + " · copia del archivo en este chat"
+    : "";
+}
+$("workspaceLabel").onclick = () => openGitHubSetup(current.workspace);
+$("removeWorkspace").onclick = () => {
+  if (!running) {
+    current.workspace = null;
+    persist();
+    updateWorkspace();
+  }
+};
+$("createToken").onclick = () => command("tokenHelp");
 function renderChat() {
+  updateWorkspace();
   const root = $("messages"),
     follow = root.scrollHeight - root.scrollTop - root.clientHeight < 100,
     oldTop = root.scrollTop;
@@ -395,8 +492,10 @@ function renderChat() {
   if (!messages.length && !answer && operationKind !== "chat" && !chatFailure) {
     const welcome = el("div", "welcome");
     const mark = el("div", "brand-mark");
-    mark.innerHTML =
-      '<svg viewBox="0 0 108 108" aria-hidden="true"><path fill="currentColor" d="M54 20 82 36V69L68 77V44L54 36 40 44V77L26 69V36Z"/><path fill="currentColor" opacity=".55" d="M47 51H61V80L54 85 47 80Z"/></svg>';
+    const brand = el("img", "");
+    brand.src = "auren-mark.png";
+    brand.alt = "";
+    mark.append(brand);
     welcome.append(
       mark,
       el(
@@ -419,7 +518,7 @@ function renderChat() {
       if (m.role === "system") continue;
       const b = el("div", "bubble " + m.role);
       b.append(
-        el("small", "", m.role === "user" ? "Tú" : "AI Local"),
+        el("small", "", m.role === "user" ? "Tú" : "Auren"),
         el("div", "message-text", m.content),
       );
       if (m.role === "assistant") {
@@ -434,30 +533,55 @@ function renderChat() {
           }
         };
         actions.append(copy);
-        if (opened && fileSha) {
+        if ((opened && fileSha) || m.workspace) {
           const edit = el("button", "quiet to-github", "Llevar a GitHub ↗");
-          edit.onclick = () =>
+          edit.onclick = () => {
+            if (
+              m.workspace &&
+              (!state.connected ||
+                !sameWorkspace(opened, m.workspace) ||
+                !fileSha)
+            ) {
+              openGitHubSetup(m.workspace);
+              return toast(
+                "Abre el archivo de esta propuesta antes de copiarla al editor.",
+              );
+            }
+            if (m.workspace && fileSha !== m.workspace.sha) {
+              openGitHubSetup(m.workspace);
+              return toast(
+                "La versión del archivo cambió. Vuelve a usar el archivo actualizado en el chat.",
+                true,
+              );
+            }
+            const blocks = [
+              ...m.content.matchAll(/```[^\n]*\n([\s\S]*?)\n```/g),
+            ];
+            if (blocks.length > 1)
+              return toast(
+                "La respuesta contiene varios bloques. Copia al editor solo el archivo que corresponda.",
+                true,
+              );
             confirmAction(
               "Copiar al editor",
               "La respuesta sustituirá el contenido del editor. Revísalo antes de guardar.",
               () => {
-                const match = m.content.match(
-                  /^```[^\n]*\n([\s\S]*?)\n```\s*$/,
-                );
-                $("editor").value = match ? match[1] : m.content;
+                $("editor").value = blocks.length ? blocks[0][1] : m.content;
                 page("github");
               },
             );
+          };
           actions.append(edit);
         }
         b.append(actions);
       }
       root.append(b);
+      if (m.githubRequest) root.append(githubGuide());
     }
     if (operationKind === "chat") {
       const b = el("div", "bubble assistant");
       b.append(
-        el("small", "", "AI Local"),
+        el("small", "", "Auren"),
         el("div", "message-text streaming", answer || progressText()),
       );
       root.append(b);
@@ -534,6 +658,8 @@ function setBusy(value, kind = null) {
   $("drawerNewChat").disabled = value;
   $("deleteCurrent").disabled = value;
   $("clearHistory").disabled = value;
+  $("removeWorkspace").disabled = value;
+  $("askFile").disabled = value;
   $("stop").classList.toggle("hidden", !value);
   $("send").classList.toggle("hidden", value);
   renderHistory();
@@ -547,6 +673,26 @@ $("prompt").oninput = autoSize;
 $("send").onclick = () => {
   const text = $("prompt").value.trim();
   if (!text || running) return;
+  const secrets = text.match(githubTokenPattern);
+  if (secrets) {
+    $("prompt").value = "";
+    autoSize();
+    openGitHubSetup();
+    $("token").value = secrets[0];
+    $("token").focus();
+    toast(
+      "Token preparado en el campo privado. Pulsa Conectar cuenta; no se guardó en el chat.",
+    );
+    return;
+  }
+  if (wantsGitHubSetup(text) && (!state.connected || !current.workspace)) {
+    messages.push({ role: "user", content: text, githubRequest: true });
+    persist();
+    $("prompt").value = "";
+    autoSize();
+    renderChat();
+    return;
+  }
   if (!state.active) {
     openPicker();
     return toast("Elige un modelo para enviar tu mensaje.");
@@ -567,6 +713,7 @@ function startChat() {
   current.failure = null;
   current.pending = true;
   current.requestId = makeId();
+  current.requestWorkspace = workspaceReference(current.workspace);
   persist();
   answer = "";
   setBusy(true, "chat");
@@ -574,13 +721,19 @@ function startChat() {
   command("chat", {
     requestId: current.requestId,
     sessionId: current.id,
+    workspace: current.workspace || undefined,
     maxTokens: Number($("responseTokens").value) || 512,
     messages: [
       {
         role: "system",
         content: prefs.instructions || defaultPrefs.instructions,
       },
-      ...messages,
+      ...messages
+        .filter((m) => !m.githubRequest)
+        .map((m) => ({
+          role: m.role,
+          content: redactGitHubSecrets(m.content),
+        })),
     ],
   });
 }
@@ -902,6 +1055,8 @@ function renderModels() {
 $("connect").onclick = () => {
   const token = $("token").value;
   if (!token.trim()) return toast("Introduce un token de GitHub.", true);
+  $("connect").disabled = true;
+  $("connection").textContent = "Comprobando la cuenta con GitHub…";
   command("connect", { token });
   $("token").value = "";
 };
@@ -1016,6 +1171,7 @@ function applyInference(data) {
           conversationModel = current.modelId || state.active;
         }
         current.pending = true;
+        current.requestWorkspace = job.workspace || current.requestWorkspace;
         current.requestId = job.id;
         chatFailure = current.failure = null;
         answer = job.answer || "";
@@ -1034,6 +1190,7 @@ function applyInference(data) {
         target.appliedRequestId !== job.id
       ) {
         target.requestId = job.id;
+        target.requestWorkspace = job.workspace || target.requestWorkspace;
         target.appliedRequestId = job.id;
         const failure = job.error
           ? { action: "chat", message: job.error, modelId: job.modelId }
@@ -1057,6 +1214,7 @@ function applyInference(data) {
             target.messages.push({
               role: "assistant",
               content: job.answer,
+              workspace: target.requestWorkspace,
               incomplete: job.status !== "success",
             });
           target.pending = false;
@@ -1109,8 +1267,12 @@ window.receive = (type, data) => {
       renderResources(data);
       $("repoArea").classList.toggle("hidden", !data.connected);
       $("connection").textContent = data.connected
-        ? "Cuenta conectada · token cifrado en este teléfono"
-        : "El token se cifra con Android Keystore. Nunca se envía al modelo.";
+        ? "Cuenta configurada" +
+          (data.githubLogin ? ": " + data.githubLogin : "") +
+          " · token cifrado en este teléfono"
+        : "Sin cuenta conectada. Añade un token para abrir tus repositorios. Se cifra en este teléfono.";
+      $("connect").disabled = false;
+      $("disconnect").disabled = !data.connected;
       if (data.connected && !was) command("repos");
       if (!data.connected) {
         $("editorArea").classList.add("hidden");
@@ -1135,6 +1297,7 @@ window.receive = (type, data) => {
         if (prefs.autoLoad && prefs.defaultModel && !state.active && !running)
           loadDefault();
       }
+      renderChat();
       break;
     }
     case "inference":
@@ -1151,6 +1314,12 @@ window.receive = (type, data) => {
     case "error":
       toast(data, true);
       $("save").disabled = false;
+      break;
+    case "githubError":
+      $("connect").disabled = false;
+      $("save").disabled = false;
+      if (data.action === "connect") $("connection").textContent = data.message;
+      toast(data.message, true);
       break;
     case "operationError":
       if (data.action === "delete") {
@@ -1217,7 +1386,11 @@ window.receive = (type, data) => {
       if (!running) break;
       if (operationKind === "chat") {
         if (answer.trim()) {
-          messages.push({ role: "assistant", content: answer });
+          messages.push({
+            role: "assistant",
+            content: answer,
+            workspace: current.requestWorkspace,
+          });
         } else if (!chatFailure) {
           chatFailure = {
             action: "chat",
@@ -1345,21 +1518,21 @@ function drawDownload(data) {
 }
 
 $("askFile").onclick = () => {
-  if (!state.active) return toast("Carga primero un modelo de código.", true);
-  if (!opened) return;
+  if (running) return toast("Espera a que termine la respuesta actual.");
+  if (!opened || !fileSha || !state.connected) return;
   const text = $("editor").value;
   if (text.length > 10000)
     return toast(
       "El archivo es largo. Copia solo el fragmento que necesitas al chat.",
       true,
     );
-  $("prompt").value =
-    "Revisa este archivo y explica las mejoras que propones.\n" +
-    opened.repo +
-    "/" +
-    opened.path +
-    "\n\n" +
-    text;
+  current.workspace = {
+    ...workspaceReference(opened),
+    sha: fileSha,
+    text: redactGitHubSecrets(text),
+  };
+  persist();
+  $("prompt").value = "Revisa este archivo y propón las mejoras necesarias.";
   page("chat");
   toast("Archivo preparado en el chat. Añade tu petición y pulsa Enviar.");
 };

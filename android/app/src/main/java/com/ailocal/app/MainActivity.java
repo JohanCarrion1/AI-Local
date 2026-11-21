@@ -278,6 +278,7 @@ public class MainActivity extends Activity {
               .put("models", models)
               .put("storage", getExternalFilesDir(null).getUsableSpace() / 1073741824.0)
               .put("connected", !token.isEmpty())
+              .put("githubLogin", prefs.getString("githubLogin", ""))
               .put("active", active)
               .put("activeContext", activeContext);
       JSONArray ids = new JSONArray();
@@ -376,7 +377,7 @@ public class MainActivity extends Activity {
       file(f).delete();
       DownloadManager.Request req =
           new DownloadManager.Request(Uri.parse(f.getString("url")))
-              .setTitle("AI Local · " + m.getString("name"))
+              .setTitle("Auren · " + m.getString("name"))
               .setNotificationVisibility(
                   DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
               .setDestinationInExternalFilesDir(this, "models", f.getString("file"));
@@ -400,7 +401,7 @@ public class MainActivity extends Activity {
 
   private void saveToken(String value) throws Exception {
     if (value.isEmpty()) {
-      prefs.edit().remove("token").remove("iv").apply();
+      prefs.edit().remove("token").remove("iv").remove("githubLogin").apply();
       token = "";
       return;
     }
@@ -444,6 +445,8 @@ public class MainActivity extends Activity {
   }
 
   private Object github(String path, String method, JSONObject body, String auth) throws Exception {
+    if (auth.trim().isEmpty())
+      throw new IOException("Conecta tu cuenta con un token antes de abrir repositorios.");
     HttpURLConnection c =
         (HttpURLConnection) new URL("https://api.github.com" + path).openConnection();
     c.setInstanceFollowRedirects(false);
@@ -462,6 +465,18 @@ public class MainActivity extends Activity {
         }
       }
       int code = c.getResponseCode();
+      if (code == 401) {
+        if (auth.equals(token)) {
+          saveToken("");
+          snapshot();
+        }
+        throw new IOException(
+            "GitHub no aceptó el token. Puede estar revocado o caducado; conecta uno válido.");
+      }
+      if (code == 403)
+        throw new IOException(
+            "GitHub rechazó el acceso. Revisa los repositorios autorizados y el permiso Contents:"
+                + " lectura y escritura; también puede haberse alcanzado el límite de peticiones.");
       if (code < 200 || code >= 300)
         throw new IOException(
             code == 409 || code == 422
@@ -499,6 +514,20 @@ public class MainActivity extends Activity {
   public class Bridge {
     @JavascriptInterface
     public void command(String action, String payload) {
+      if (action.equals("tokenHelp")) {
+        runOnUiThread(
+            () -> {
+              try {
+                startActivity(
+                    new Intent(
+                        Intent.ACTION_VIEW,
+                        Uri.parse("https://github.com/settings/personal-access-tokens/new")));
+              } catch (Exception e) {
+                event("error", "Abre github.com/settings/personal-access-tokens en tu navegador.");
+              }
+            });
+        return;
+      }
       if (action.equals("stop")) {
         if (inferenceService != null) inferenceService.stopGeneration();
         return;
@@ -533,13 +562,13 @@ public class MainActivity extends Activity {
                   image = null;
                   event("image", false);
                 }
+                JSONObject request = new JSONObject(payload);
+                if (action.equals("chat"))
+                  request =
+                      ChatContext.prepare(
+                          request, !token.isEmpty(), prefs.getString("githubLogin", ""));
                 InferenceService.enqueue(
-                    MainActivity.this,
-                    action,
-                    new JSONObject(payload),
-                    image,
-                    imageWidth,
-                    imageHeight);
+                    MainActivity.this, action, request, image, imageWidth, imageHeight);
                 if (Build.VERSION.SDK_INT >= 33
                     && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
                         != android.content.pm.PackageManager.PERMISSION_GRANTED
@@ -605,6 +634,7 @@ public class MainActivity extends Activity {
                     String t = p.getString("token").trim();
                     JSONObject user = (JSONObject) github("/user", "GET", null, t);
                     saveToken(t);
+                    prefs.edit().putString("githubLogin", user.getString("login")).apply();
                     event("notice", "Conectado como " + user.getString("login"));
                     snapshot();
                     break;
@@ -687,7 +717,18 @@ public class MainActivity extends Activity {
                   }
               }
             } catch (Exception e) {
-              event("error", e.getMessage());
+              if (action.equals("connect")
+                  || action.equals("disconnect")
+                  || action.equals("repos")
+                  || action.equals("read")
+                  || action.equals("write")) {
+                try {
+                  event(
+                      "githubError",
+                      new JSONObject().put("action", action).put("message", e.getMessage()));
+                } catch (JSONException ignored) {
+                }
+              } else event("error", e.getMessage());
             }
           });
     }
@@ -753,7 +794,7 @@ public class MainActivity extends Activity {
         handled -> {
           if (destroyed || "true".equals(handled)) return;
           new AlertDialog.Builder(this)
-              .setMessage("¿Salir de AI Local?")
+              .setMessage("¿Salir de Auren?")
               .setPositiveButton("Salir", (d, w) -> finish())
               .setNegativeButton("Continuar", null)
               .show();

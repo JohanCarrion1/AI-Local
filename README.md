@@ -1,4 +1,6 @@
-# AI Local · Android 2.4
+# Auren · Android 2.5
+
+Auren es el nuevo nombre de AI Local. Mantiene `com.ailocal.app`, la firma de actualización, los modelos descargados, el historial y los ajustes. Su nuevo icono es un halcón geométrico en cobre y marfil sobre fondo oscuro, con recursos adaptativos y una variante monocroma para iconos temáticos y notificaciones.
 
 Asistente Android con inferencia **dentro de la aplicación**, sin Termux, Python, Ollama ni servidores. La nueva app nativa se encuentra en `android/`; el prototipo Python se conserva para escritorio.
 
@@ -83,7 +85,13 @@ La interfaz sigue dentro del contenedor nativo que reserva barras del sistema, r
 
 ## Privacidad y GitHub
 
-Inferencia offline tras descargar y verificar el modelo. Solo las descargas (Hugging Face) y las operaciones explícitas con GitHub requieren red. El token se cifra con AES-GCM y una clave de Android Keystore; las copias de seguridad de la app están deshabilitadas. Nunca se guarda en JavaScript ni se entrega al modelo. Utiliza un token fine-grained limitado a los repositorios necesarios, con **Contents: Read and write** y Metadata de lectura. La app lista hasta 100 repositorios recientes y permite editar texto de hasta 512 KB. No hay sincronización automática ni edición autónoma de repositorios: los cambios se envían al confirmar Guardar.
+El chat distingue la conexión de GitHub de las capacidades del modelo. Una petición para conectar la cuenta muestra una guía con acceso directo al campo de token, incluso antes de cargar un modelo. **Sin token todavía no hay una cuenta conectada.** El botón Crear un token abre los ajustes oficiales de GitHub; selecciona los repositorios y los permisos Contents de lectura/escritura. Tras validarlo, se muestra la cuenta configurada. Los tokens rechazados y los permisos insuficientes se explican en la app.
+
+Abre un archivo y pulsa **Usar archivo en el chat**. Se adjunta una copia local de hasta 10 000 caracteres, identificada por repositorio, rama, ruta y SHA; su tamaño debe caber en el contexto elegido del modelo. La app aporta al modelo su estado real de conexión y sus capacidades de lectura, propuesta y edición mediante la interfaz. El código se trata como material de referencia. La respuesta puede copiarse al editor tras revisarla; una propuesta asociada a un archivo no sustituye otro archivo ni una revisión distinta. Guardar en GitHub sigue requiriendo confirmar un commit y el servidor comprueba el SHA.
+
+Un token pegado por accidente en el chat pasa al campo privado, sin guardarse como mensaje ni enviarse a inferencia. También se ocultan patrones de tokens de GitHub en las instrucciones, historial y código enviados al modelo. La copia seleccionada puede conservarse con la conversación y retirarse con × junto al compositor; no se consulta el repositorio en vivo durante cada respuesta.
+
+Inferencia offline tras descargar y verificar el modelo. Solo las descargas (Hugging Face) y las operaciones explícitas con GitHub requieren red. El token se cifra con AES-GCM y una clave de Android Keystore; las copias de seguridad de la app están deshabilitadas. Se introduce en un campo privado transitorio, no se guarda en el historial ni en localStorage y no se entrega al modelo. Utiliza un token fine-grained limitado a los repositorios necesarios, con **Contents: Read and write** y Metadata de lectura. La app lista hasta 100 repositorios recientes y permite editar texto de hasta 512 KB. No hay sincronización automática ni edición autónoma de repositorios: los cambios se envían al confirmar Guardar.
 
 ## Compilar
 
@@ -117,4 +125,4 @@ La prueba Android también vuelve a Inicio durante la generación, espera su fin
 - Crear una rama de prueba en GitHub, editar un archivo y verificar el commit; modificar el mismo archivo remotamente para comprobar el rechazo de SHA obsoleto.
 - Probar 3B/7B solo con memoria suficiente y observar consumo/temperatura.
 
-El icono vectorial original combina un monograma arquitectónico, un núcleo vertical y una estrella de cuatro puntas. Los archivos Python y su CI heredado siguen siendo independientes del APK.
+La identidad gráfica se documenta en `android/branding/README.md`. Los archivos Python y su CI heredado siguen siendo independientes del APK.
