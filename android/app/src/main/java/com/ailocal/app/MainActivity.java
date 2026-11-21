@@ -84,7 +84,7 @@ public class MainActivity extends Activity {
     android.widget.FrameLayout safeArea = new android.widget.FrameLayout(this);
     safeArea.setTag("safe-area");
     web.setTag("app-webview");
-    safeArea.setBackgroundColor(Color.rgb(16, 23, 19));
+    safeArea.setBackgroundColor(Color.rgb(25, 24, 23));
     safeArea.addView(
         web,
         new android.widget.FrameLayout.LayoutParams(
@@ -106,9 +106,10 @@ public class MainActivity extends Activity {
         });
     setContentView(safeArea);
     androidx.core.view.ViewCompat.requestApplyInsets(safeArea);
-    web.setBackgroundColor(Color.rgb(16, 23, 19));
+    web.setBackgroundColor(Color.rgb(25, 24, 23));
     web.getSettings().setJavaScriptEnabled(true);
     web.getSettings().setDomStorageEnabled(true);
+    web.getSettings().setCacheMode(WebSettings.LOAD_NO_CACHE);
     web.getSettings().setAllowFileAccess(false);
     web.getSettings().setAllowContentAccess(false);
     web.getSettings().setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
@@ -225,7 +226,12 @@ public class MainActivity extends Activity {
 
   private JSONObject resourceSample() throws Exception {
     return ResourceMonitor.sample(this)
-        .put("storage", getExternalFilesDir(null).getUsableSpace() / 1073741824.0);
+        .put("storage", getExternalFilesDir(null).getUsableSpace() / 1073741824.0)
+        .put(
+            "systemDark",
+            (getResources().getConfiguration().uiMode
+                    & android.content.res.Configuration.UI_MODE_NIGHT_MASK)
+                == android.content.res.Configuration.UI_MODE_NIGHT_YES);
   }
 
   private void snapshot() {
@@ -611,6 +617,22 @@ public class MainActivity extends Activity {
             try {
               JSONObject p = new JSONObject(payload);
               switch (action) {
+                case "appearance":
+                  boolean light = p.optBoolean("light", false);
+                  runOnUiThread(
+                      () -> {
+                        if (destroyed) return;
+                        int background = light ? Color.rgb(246, 243, 237) : Color.rgb(25, 24, 23);
+                        web.setBackgroundColor(background);
+                        ((android.view.View) web.getParent()).setBackgroundColor(background);
+                        getWindow().setStatusBarColor(background);
+                        getWindow().setNavigationBarColor(background);
+                        androidx.core.view.WindowInsetsControllerCompat controller =
+                            androidx.core.view.WindowCompat.getInsetsController(getWindow(), web);
+                        controller.setAppearanceLightStatusBars(light);
+                        controller.setAppearanceLightNavigationBars(light);
+                      });
+                  break;
                 case "state":
                   snapshot();
                   break;
@@ -761,12 +783,27 @@ public class MainActivity extends Activity {
   }
 
   @Override
+  public void onConfigurationChanged(android.content.res.Configuration configuration) {
+    super.onConfigurationChanged(configuration);
+    event(
+        "systemTheme",
+        (configuration.uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK)
+            == android.content.res.Configuration.UI_MODE_NIGHT_YES);
+  }
+
+  @Override
   public void onBackPressed() {
-    new AlertDialog.Builder(this)
-        .setMessage("¿Salir de AI Local?")
-        .setPositiveButton("Salir", (d, w) -> finish())
-        .setNegativeButton("Continuar", null)
-        .show();
+    if (destroyed) return;
+    web.evaluateJavascript(
+        "typeof window.handleBack === 'function' && window.handleBack()",
+        handled -> {
+          if (destroyed || "true".equals(handled)) return;
+          new AlertDialog.Builder(this)
+              .setMessage("¿Salir de AI Local?")
+              .setPositiveButton("Salir", (d, w) -> finish())
+              .setNegativeButton("Continuar", null)
+              .show();
+        });
   }
 
   @Override
