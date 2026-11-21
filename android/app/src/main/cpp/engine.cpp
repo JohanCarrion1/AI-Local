@@ -36,7 +36,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_ailocal_app_Engine_generate(JNIEnv * 
     cancelled=false; llama_memory_clear(llama_get_memory(ctx),true);
     std::vector<std::string> rs,ts; int count=e->GetArrayLength(texts);
     for(int i=0;i<count;i++) { auto r=(jstring)e->GetObjectArrayElement(roles,i); auto t=(jstring)e->GetObjectArrayElement(texts,i); rs.push_back(str(e,r)); ts.push_back(str(e,t)); e->DeleteLocalRef(r); e->DeleteLocalRef(t); }
-    if(rgb) { if(!vision) { fail(e,"Este modelo solo admite texto. Selecciona SmolVLM para imágenes."); return; } ts.back()=std::string(mtmd_default_marker())+"\n"+ts.back(); }
+    if(rgb) { if(!vision) { fail(e,"Este modelo solo admite texto. Selecciona un modelo de visión para imágenes."); return; } ts.back()=std::string(mtmd_default_marker())+"\n"+ts.back(); }
     std::vector<llama_chat_message> messages; for(int i=0;i<count;i++) messages.push_back({rs[i].c_str(),ts[i].c_str()});
     const char * tmpl=llama_model_chat_template(model,nullptr);
     int n=llama_chat_apply_template(tmpl,messages.data(),messages.size(),true,nullptr,0);

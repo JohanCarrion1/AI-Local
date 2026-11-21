@@ -5,10 +5,17 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 models = json.loads((Path(__file__).parent / 'app/src/main/assets/models.json').read_text())
+assert len(models) >= 15
+assert sum(m['parameters'] >= 5 for m in models) > 10
 assert len({m['id'] for m in models}) == len(models)
 for model in models:
     assert re.fullmatch(r'[0-9a-f]{40}', model['revision'])
     assert model['ram'] >= 2
+    assert model['memory'] > 0 and model['memory'] <= model['ram']
+    assert model['parameters'] > 0
+    assert model['kind'] in {'chat', 'code', 'reasoning', 'vision'}
+    assert model['vision'] == (model['kind'] == 'vision')
+    assert model['description'] and model['quant']
     assert len(model['files']) == (2 if model['vision'] else 1)
     for asset in model['files']:
         url = urlparse(asset['url'])

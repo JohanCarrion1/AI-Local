@@ -34,6 +34,7 @@ public class MainActivity extends Activity {
   private volatile boolean busy = false;
   private boolean destroyed = false;
   private final Handler handler = new Handler(Looper.getMainLooper());
+  private long lastResourceRefresh = 0;
   private final Runnable ticker =
       new Runnable() {
         public void run() {
@@ -42,6 +43,10 @@ public class MainActivity extends Activity {
                 () -> {
                   try {
                     downloads();
+                    if (SystemClock.elapsedRealtime() - lastResourceRefresh >= 10000) {
+                      event("resources", resourceSample());
+                      lastResourceRefresh = SystemClock.elapsedRealtime();
+                    }
                   } catch (Exception e) {
                     event("error", e.getMessage());
                   }
@@ -70,22 +75,34 @@ public class MainActivity extends Activity {
       token = "";
     }
     web = new WebView(this);
-    setContentView(web);
-    web.setOnApplyWindowInsetsListener(
+    // Insets belong on a parent ViewGroup: WebView padding does not reliably
+    // move its HTML viewport or fixed-position navigation on Android 15+.
+    androidx.core.view.WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+    android.widget.FrameLayout safeArea = new android.widget.FrameLayout(this);
+    safeArea.setTag("safe-area");
+    web.setTag("app-webview");
+    safeArea.setBackgroundColor(Color.rgb(16, 23, 19));
+    safeArea.addView(
+        web,
+        new android.widget.FrameLayout.LayoutParams(
+            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+            android.view.ViewGroup.LayoutParams.MATCH_PARENT));
+    androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(
+        safeArea,
         (view, insets) -> {
-          if (Build.VERSION.SDK_INT >= 30) {
-            android.graphics.Insets bars =
-                insets.getInsets(android.view.WindowInsets.Type.systemBars());
-            view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
-          } else {
-            view.setPadding(
-                insets.getSystemWindowInsetLeft(),
-                insets.getSystemWindowInsetTop(),
-                insets.getSystemWindowInsetRight(),
-                insets.getSystemWindowInsetBottom());
-          }
-          return insets;
+          androidx.core.graphics.Insets bars =
+              insets.getInsets(
+                  androidx.core.view.WindowInsetsCompat.Type.systemBars()
+                      | androidx.core.view.WindowInsetsCompat.Type.displayCutout());
+          androidx.core.graphics.Insets ime =
+              insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime());
+          int breathingRoom = Math.round(8 * getResources().getDisplayMetrics().density);
+          view.setPadding(
+              bars.left, bars.top + breathingRoom, bars.right, Math.max(bars.bottom, ime.bottom));
+          return androidx.core.view.WindowInsetsCompat.CONSUMED;
         });
+    setContentView(safeArea);
+    androidx.core.view.ViewCompat.requestApplyInsets(safeArea);
     web.setBackgroundColor(Color.rgb(16, 23, 19));
     web.getSettings().setJavaScriptEnabled(true);
     web.getSettings().setDomStorageEnabled(true);
@@ -167,15 +184,16 @@ public class MainActivity extends Activity {
     return true;
   }
 
+  private JSONObject resourceSample() throws Exception {
+    return ResourceMonitor.sample(this)
+        .put("storage", getExternalFilesDir(null).getUsableSpace() / 1073741824.0);
+  }
+
   private void snapshot() {
     try {
-      ActivityManager.MemoryInfo mem = new ActivityManager.MemoryInfo();
-      ((ActivityManager) getSystemService(ACTIVITY_SERVICE)).getMemoryInfo(mem);
       JSONObject s =
-          new JSONObject()
+          resourceSample()
               .put("models", models)
-              .put("ram", mem.totalMem / 1073741824.0)
-              .put("available", mem.availMem / 1073741824.0)
               .put("storage", getExternalFilesDir(null).getUsableSpace() / 1073741824.0)
               .put("connected", !token.isEmpty())
               .put("active", active);
@@ -420,6 +438,21 @@ public class MainActivity extends Activity {
                   JSONObject m = model(p.getString("id"));
                   if (!installed(m)) throw new IOException("Primero descarga el modelo completo.");
                   active = "";
+                  Engine.unload();
+                  JSONObject resources = resourceSample();
+                  event("resources", resources);
+                  if (resources.getBoolean("lowMemory")
+                      || resources.getDouble("budget") < m.getDouble("memory")) {
+                    snapshot();
+                    throw new IOException(
+                        String.format(
+                            java.util.Locale.ROOT,
+                            "No recomendado: este modelo necesita aproximadamente %.1f GB y el"
+                                + " presupuesto IA actual es %.1f GB. Cierra otras apps o elige un"
+                                + " modelo más pequeño.",
+                            m.getDouble("memory"),
+                            resources.getDouble("budget")));
+                  }
                   snapshot();
                   JSONArray fs = m.getJSONArray("files");
                   Engine.load(
