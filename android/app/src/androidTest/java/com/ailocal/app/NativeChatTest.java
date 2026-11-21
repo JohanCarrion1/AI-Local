@@ -7,6 +7,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.rule.ActivityTestRule;
 import java.io.File;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.concurrent.CountDownLatch;
@@ -57,7 +58,9 @@ public class NativeChatTest {
             rule.getActivity().getExternalFilesDir("models"),
             "qwen2.5-coder-0.5b-instruct-q4_k_m.gguf");
     Files.copy(fixture.toPath(), model.toPath(), StandardCopyOption.REPLACE_EXISTING);
-    Files.writeString(new File(model + ".ready").toPath(), "CI verified SHA-256");
+    Files.write(
+        new File(model + ".ready").toPath(),
+        "CI verified SHA-256".getBytes(StandardCharsets.UTF_8));
     await("typeof window.receive === 'function'", 30);
     evaluate("Native.command('state','{}')");
     await("state.installed.includes('qwen05')", 30);
