@@ -16,10 +16,13 @@ final class ChatContext {
       throws JSONException {
     JSONObject request = new JSONObject(source.toString());
     JSONArray input = request.getJSONArray("messages"), output = new JSONArray();
-    String preferences = "";
-    for (int i = 0; i < input.length(); i++)
+    String preferences = "", latestQuestion = "";
+    for (int i = 0; i < input.length(); i++) {
       if ("system".equals(input.getJSONObject(i).optString("role")))
         preferences += redact(input.getJSONObject(i).optString("content")) + "\n";
+      if ("user".equals(input.getJSONObject(i).optString("role")))
+        latestQuestion = input.getJSONObject(i).optString("content");
+    }
     String capabilities =
         "Eres Auren, el asistente local de esta aplicación. Responde en español. La app SÍ integra"
             + " GitHub: conecta un token, lista repositorios, abre archivos y guarda commits con"
@@ -32,7 +35,17 @@ final class ChatContext {
                 ? "Estado real: hay una cuenta configurada"
                     + (login.isEmpty() ? ". " : " (" + redact(login) + "). ")
                 : "Estado real: no hay token ni cuenta de GitHub conectada; guía al usuario para"
-                    + " conectarla primero. ");
+                      + " conectarla para abrir o guardar repositorios. Puedes analizar código"
+                      + " proporcionado sin conexión. ");
+    if (!configured
+        && request.optJSONObject("workspace") == null
+        && !Pattern.compile("(?i)git\\s*hub|repositorio|\\bcommit\\b")
+            .matcher(latestQuestion)
+            .find())
+      capabilities =
+          "Eres Auren, el asistente local de esta aplicación. Responde en español con precisión.";
+    else
+      capabilities += "Menciona la conexión a GitHub solo cuando sea relevante para la solicitud. ";
     output.put(
         new JSONObject()
             .put("role", "system")

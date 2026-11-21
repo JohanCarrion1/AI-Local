@@ -6,6 +6,15 @@ import org.json.*;
 import org.junit.Test;
 
 public class ChatContextTest {
+  @Test
+  public void ordinaryChatDoesNotTurnIntoGitHubOnboarding() throws Exception {
+    JSONObject prepared = ChatContext.prepare(request("Hola, ¿cuánto es 2+2?"), false, "");
+    String system = prepared.getJSONArray("messages").getJSONObject(0).getString("content");
+    assertTrue(system.contains("Auren"));
+    assertFalse(system.contains("GitHub"));
+    assertTrue(system.contains("Prefiero respuestas breves."));
+  }
+
   private JSONObject request(String question) throws Exception {
     return new JSONObject()
         .put(
