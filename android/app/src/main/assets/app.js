@@ -92,6 +92,22 @@ let state = { models: [], installed: [], ram: 0, available: 0 },
   drawerOpen = false,
   nativeSystemDark = null,
   autoLoadAttempted = false;
+let operationStatus = "",
+  operationStarted = 0,
+  busyTimer = null,
+  chatFailure = current.pending
+    ? {
+        action: "chat",
+        message:
+          "La respuesta anterior se interrumpió. Puedes reintentar tu mensaje.",
+      }
+    : current.failure || null,
+  operationStopped = false;
+let resumeAfterLoad = false;
+if (current.pending) {
+  current.pending = false;
+  current.failure = chatFailure;
+}
 const downloads = new Map();
 $("contextTokens").value = String(prefs.context);
 $("responseTokens").value = String(prefs.response);
@@ -243,9 +259,11 @@ function switchSession(id) {
   const next = store.sessions.find((s) => s.id === id);
   if (!next) return;
   current = next;
+  resumeAfterLoad = false;
   messages = current.messages;
   conversationModel = current.modelId || "";
   answer = "";
+  chatFailure = current.failure || null;
   command("clearImage");
   saveConversations();
   renderHistory();
@@ -254,12 +272,14 @@ function switchSession(id) {
 function newConversation() {
   if (running) return toast("Detén la respuesta antes de abrir otro chat.");
   persist();
+  resumeAfterLoad = false;
   current = blankSession();
   current.modelId = state.active || prefs.defaultModel || "";
   store.sessions.push(current);
   messages = current.messages;
   conversationModel = current.modelId;
   answer = "";
+  chatFailure = null;
   command("clearImage");
   saveConversations();
   renderHistory();
@@ -279,7 +299,7 @@ function updateHeader() {
         : "GitHub";
   $("modelState").textContent =
     operationKind === "load"
-      ? "Cargando…"
+      ? operationStatus || "Cargando…"
       : state.active
         ? "En tu dispositivo ⌄"
         : "Elegir modelo ⌄";
@@ -288,11 +308,13 @@ function beginLoad(model) {
   if (running) return toast("Hay una respuesta o carga en curso.");
   if ($("modelPicker").open) $("modelPicker").close();
   loadingModelId = model.id;
+  chatFailure = null;
   setBusy(true, "load");
   toast("Cargando " + model.name + "…");
   clearTimeout(toast.timer);
   updateHeader();
   command("load", { id: model.id, context: contextFor(model) });
+  page("chat");
 }
 function loadDefault() {
   const model = [current.modelId, prefs.defaultModel]
@@ -309,7 +331,10 @@ function openPicker() {
   $("modelPicker").showModal();
 }
 $("modelSwitch").onclick = openPicker;
-$("closePicker").onclick = () => $("modelPicker").close();
+$("closePicker").onclick = () => {
+  resumeAfterLoad = false;
+  $("modelPicker").close();
+};
 $("browseModels").onclick = () => page("library");
 function renderPicker() {
   const root = $("installedModels");
@@ -363,9 +388,9 @@ function renderChat() {
   root.replaceChildren();
   root.classList.toggle(
     "empty-state",
-    !messages.length && !answer && operationKind !== "chat",
+    !messages.length && !answer && operationKind !== "chat" && !chatFailure,
   );
-  if (!messages.length && !answer && operationKind !== "chat") {
+  if (!messages.length && !answer && operationKind !== "chat" && !chatFailure) {
     const welcome = el("div", "welcome");
     const mark = el("div", "brand-mark");
     mark.innerHTML =
@@ -431,16 +456,66 @@ function renderChat() {
       const b = el("div", "bubble assistant");
       b.append(
         el("small", "", "AI Local"),
-        el("div", "message-text streaming", answer || "Pensando…"),
+        el("div", "message-text streaming", answer || progressText()),
       );
       root.append(b);
     }
   }
+  if (operationKind === "load") {
+    const status = el("div", "model-progress", progressText());
+    status.setAttribute("role", "status");
+    root.append(status);
+  }
+  if (chatFailure && !running) {
+    const error = el("div", "operation-error");
+    error.setAttribute("role", "alert");
+    error.append(el("p", "", chatFailure.message));
+    const actions = el("div", "message-actions");
+    const failed = { ...chatFailure };
+    if (failed.action === "load" || messages.at(-1)?.role === "user") {
+      const retry = el("button", "quiet retry-operation", "Reintentar");
+      retry.onclick = () => {
+        if (failed.action === "load") {
+          const model = state.models.find((m) => m.id === failed.modelId);
+          if (model) beginLoad(model);
+          else openPicker();
+        } else if (state.active) startChat();
+        else {
+          resumeAfterLoad = true;
+          loadDefault();
+        }
+      };
+      actions.append(retry);
+    }
+    const change = el("button", "quiet", "Elegir modelo");
+    change.onclick = openPicker;
+    actions.append(change);
+    error.append(actions);
+    root.append(error);
+  }
   root.scrollTop = follow ? root.scrollHeight : oldTop;
 }
+function progressText() {
+  const seconds = Math.floor((Date.now() - operationStarted) / 1000);
+  return (
+    (operationStatus || "Preparando…") + (seconds ? " · " + seconds + " s" : "")
+  );
+}
 function setBusy(value, kind = null) {
+  clearInterval(busyTimer);
   running = value;
   operationKind = value ? kind || operationKind : null;
+  if (value) operationStopped = false;
+  operationStarted = value ? Date.now() : 0;
+  operationStatus = value
+    ? operationKind === "load"
+      ? "Abriendo modelo…"
+      : "Procesando mensaje…"
+    : "";
+  if (value)
+    busyTimer = setInterval(() => {
+      if (!answer) renderChat();
+    }, 1000);
   $("send").disabled = value;
   $("attach").disabled = value;
   $("newChat").disabled = value;
@@ -472,6 +547,14 @@ $("send").onclick = () => {
   persist();
   $("prompt").value = "";
   autoSize();
+  startChat();
+};
+function startChat() {
+  if (running) return;
+  chatFailure = null;
+  current.failure = null;
+  current.pending = true;
+  persist();
   answer = "";
   setBusy(true, "chat");
   renderChat();
@@ -485,8 +568,12 @@ $("send").onclick = () => {
       ...messages,
     ],
   });
-};
+}
 $("stop").onclick = () => {
+  operationStopped = true;
+  operationStatus = "Deteniendo…";
+  updateHeader();
+  renderChat();
   command("stop");
   toast("Deteniendo…");
 };
@@ -891,10 +978,37 @@ window.receive = (type, data) => {
       toast(data, true);
       $("save").disabled = false;
       break;
+    case "operationError":
+      chatFailure = {
+        action: data.action,
+        message: data.message,
+        modelId: loadingModelId || state.active,
+      };
+      break;
+    case "progress": {
+      if (!running || data.action !== operationKind || operationStopped) break;
+      const labels = {
+        weights:
+          "Cargando modelo " + Math.max(0, Math.min(100, data.current)) + "%",
+        context: "Preparando contexto…",
+        vision: "Cargando visión…",
+        image: "Procesando imagen…",
+        prompt:
+          "Procesando mensaje · " + data.current + "/" + data.total + " tokens",
+        generate: "Generando respuesta…",
+      };
+      operationStatus = labels[data.phase] || "Preparando…";
+      updateHeader();
+      if (!answer) renderChat();
+      break;
+    }
     case "metrics":
-      if (prefs.showStats)
+      operationStopped = !!data.stopped;
+      if (prefs.showStats) {
+        $("chatHint").classList.remove("hidden");
         $("chatHint").textContent =
           data.context + " contexto · " + data.tps.toFixed(1) + " tokens/s";
+      }
       break;
     case "loaded":
       conversationModel = data;
@@ -902,37 +1016,59 @@ window.receive = (type, data) => {
         prefs.defaultModel = data;
         savePrefs();
       }
-      persist();
       loadingModelId = "";
+      chatFailure = null;
+      current.failure = null;
+      persist();
       setBusy(false);
       renderPicker();
       renderDefaultOptions();
       page("chat");
       toast("Modelo listo.");
+      if (resumeAfterLoad && messages.at(-1)?.role === "user") {
+        resumeAfterLoad = false;
+        startChat();
+      }
       break;
     case "answer":
+      if (operationKind !== "chat") break;
       answer = data;
       renderChat();
       break;
     case "done":
+      if (!running) break;
       if (operationKind === "chat") {
-        if (answer) {
+        if (answer.trim()) {
           messages.push({ role: "assistant", content: answer });
-          persist();
-        } else if (data === false && messages.at(-1)?.role === "user") {
-          const failed = messages.pop();
-          $("prompt").value = failed.content;
-          autoSize();
-          persist();
+        } else if (!chatFailure) {
+          chatFailure = {
+            action: "chat",
+            message: operationStopped
+              ? "Respuesta detenida. Puedes reintentar el mensaje."
+              : "El modelo no devolvió texto. Reintenta el mensaje o vuelve a cargar el modelo.",
+          };
         }
+        current.pending = false;
+        current.failure = chatFailure;
+        persist();
         answer = "";
-        attachment = false;
-        $("attachment").classList.add("hidden");
+        if (data !== false) {
+          attachment = false;
+          $("attachment").classList.add("hidden");
+        }
+      } else if (data === false && !chatFailure) {
+        chatFailure = {
+          action: "load",
+          modelId: loadingModelId,
+          message: "No se pudo cargar el modelo. Puedes reintentar la carga.",
+        };
       }
+      loadingModelId = "";
       setBusy(false);
       renderChat();
       break;
     case "idle":
+      if (running) break;
       loadingModelId = "";
       setBusy(false);
       break;
@@ -1200,8 +1336,10 @@ $("instructions").oninput = () => {
 $("showStats").onchange = () => {
   prefs.showStats = $("showStats").checked;
   savePrefs();
-  if (!prefs.showStats)
-    $("chatHint").textContent = "AI Local puede cometer errores.";
+  if (!prefs.showStats) {
+    $("chatHint").textContent = "";
+    $("chatHint").classList.add("hidden");
+  }
 };
 $("deleteCurrent").onclick = () => {
   if (running) return;
@@ -1215,6 +1353,7 @@ $("deleteCurrent").onclick = () => {
       messages = current.messages;
       conversationModel = current.modelId || "";
       answer = "";
+      chatFailure = current.failure || null;
       saveConversations();
       renderHistory();
       page("chat");
@@ -1232,6 +1371,7 @@ $("clearHistory").onclick = () => {
       messages = current.messages;
       conversationModel = "";
       answer = "";
+      chatFailure = null;
       saveConversations();
       renderHistory();
       page("chat");

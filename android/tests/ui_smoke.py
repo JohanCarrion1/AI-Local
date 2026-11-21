@@ -31,6 +31,8 @@ with sync_playwright() as p:
     page.add_init_script('window.calls=[];window.Native={command:(a,d)=>calls.push([a,JSON.parse(d)])};')
     page.goto('http://127.0.0.1:8765')
     assert page.locator('#chat').is_visible() and not page.locator('#library').is_visible()
+    assert not page.locator('#chatHint').is_visible()
+    assert 'puede cometer errores' not in page.locator('body').inner_text()
     assert page.evaluate('prefs.accent') == '#e5a078'
     assert page.locator('#prompt').bounding_box()['y'] > 650
     assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
@@ -176,6 +178,46 @@ with sync_playwright() as p:
     assert page.evaluate('store.sessions.length')==1
     assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
     assert not errors,errors
+
+    # Worker ordering, long-prefill feedback and recoverable empty responses.
+    recovery=browser.new_page(viewport={'width':390,'height':844})
+    recovery.add_init_script('window.calls=[];window.Native={command:(a,d)=>calls.push([a,JSON.parse(d)])};')
+    recovery.goto('http://127.0.0.1:8765')
+    recovery.evaluate('(s)=>receive("state",s)',state)
+    recovery.locator('#prompt').fill('Hola que tal')
+    recovery.locator('#send').click()
+    recovery.evaluate('receive("idle",true)')
+    assert recovery.locator('#stop').is_visible(), 'A stale idle event must not erase an active reply'
+    recovery.evaluate('receive("progress",{action:"chat",phase:"prompt",current:128,total:230})')
+    assert '128/230 tokens' in recovery.locator('.streaming').inner_text()
+    recovery.evaluate('receive("done",true)')
+    assert recovery.locator('.operation-error').is_visible(), 'Empty inference cannot silently succeed'
+    assert recovery.evaluate('messages.length')==1
+    recovery.locator('.retry-operation').click()
+    assert recovery.evaluate('calls.at(-1)[1].messages.filter(m=>m.role==="user").length')==1
+    recovery.evaluate('receive("operationError",{action:"chat",message:"Fallo del contexto local"});receive("done",false)')
+    assert 'Fallo del contexto local' in recovery.locator('.operation-error').inner_text()
+    recovery.reload();recovery.evaluate('(s)=>receive("state",s)',state)
+    assert recovery.locator('.retry-operation').is_visible()
+    recovery.locator('.retry-operation').click()
+    recovery.reload();recovery.evaluate('(s)=>receive("state",s)',unloaded)
+    assert 'se interrumpió' in recovery.locator('.operation-error').inner_text()
+    recovery.locator('.retry-operation').click()
+    assert recovery.evaluate('calls.at(-1)[0]')=='load'
+    recovery.evaluate('receive("progress",{action:"load",phase:"weights",current:64,total:100})')
+    assert '64%' in recovery.locator('.model-progress').inner_text()
+    recovery.evaluate('(s)=>receive("state",s)',state)
+    recovery.evaluate('receive("loaded","qwen7")')
+    assert recovery.evaluate('calls.at(-1)[0]')=='chat'
+    deliver(recovery,'¡Hola! ¿En qué puedo ayudarte?')
+    assert recovery.locator('.bubble.assistant .message-text').inner_text().startswith('¡Hola!')
+    assert not recovery.locator('.operation-error').count()
+    assert not recovery.locator('#chatHint').is_visible()
+    settings(recovery);recovery.locator('#showStats').check();recovery.locator('#closeSettings').click()
+    recovery.evaluate('receive("metrics",{context:1024,tps:3.5,stopped:false})')
+    assert recovery.locator('#chatHint').inner_text()=='1024 contexto · 3.5 tokens/s'
+    settings(recovery);recovery.locator('#showStats').uncheck();recovery.locator('#closeSettings').click()
+    assert not recovery.locator('#chatHint').is_visible()
 
     # Upgrade migration from the 2.2 single-chat store preserves the original messages.
     legacy=browser.new_page(viewport={'width':360,'height':760})

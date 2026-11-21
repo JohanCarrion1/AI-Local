@@ -1,4 +1,4 @@
-# AI Local · Android 2.3
+# AI Local · Android 2.3.1
 
 Asistente Android con inferencia **dentro de la aplicación**, sin Termux, Python, Ollama ni servidores. La nueva app nativa se encuentra en `android/`; el prototipo Python se conserva para escritorio.
 
@@ -13,6 +13,8 @@ La app abre directamente el chat. El menú hamburguesa contiene **Chat predeterm
 El perfil al pie del menú despliega los ajustes: nombre local, tema oscuro/claro/sistema, naranja predeterminado y otros acentos (azul, violeta, rosa, neutro y color personalizado), modelo preferido, carga automática opcional, contexto, máximo de respuesta e instrucciones del asistente. La opción de estadísticas y los recursos del dispositivo están en esos ajustes. Los colores y preferencias se guardan en el teléfono, y las barras del sistema siguen el tema claro u oscuro. Se conserva la marca AI Local; no se conecta con Claude ni utiliza su servicio.
 
 El historial se guarda en el almacenamiento local del WebView. No se sincroniza con cuentas externas y se elimina si se borran los datos de la app. Eliminar una conversación o todo el historial requiere confirmación; los modelos descargados y el token de GitHub se conservan. Solo hay una generación activa; cambiar de conversación o borrarla se bloquea mientras responde para evitar mezclar mensajes.
+
+La carga muestra el progreso de los pesos y la preparación del contexto. Antes del primer token se muestra el procesamiento del mensaje y el tiempo transcurrido. Los errores de inferencia y las respuestas vacías quedan visibles con Reintentar; el mensaje enviado se conserva sin duplicarlo. Si Android interrumpe una respuesta, al reabrir se permite reintentar. El compositor no incluye una advertencia fija; las estadísticas son opcionales desde el perfil.
 
 ## Uso
 
@@ -87,11 +89,15 @@ cd android
 
 CMake obtiene llama.cpp del commit fijo `9581154a2250cc9e6948e4c2a2fc4b4e19d1a57e`, con soporte multimodal mtmd. APK contiene JNI, llama y mtmd; modelos se descargan separadamente. No requiere permisos generales de almacenamiento: los modelos están en almacenamiento propio de la app y las imágenes se abren con el selector del sistema.
 
+Los kernels nativos se compilan con optimización `-O3` también en el APK debug. La preparación de texto y visión respeta `llama_n_batch(ctx)`; no se envían bloques de 256 tokens a un contexto configurado con batch 128. Detener también interrumpe el procesamiento CPU del contexto, además del bucle de generación.
+
 Actions compila el motor real, ejecuta lint, exige un APK, verifica la firma y comprueba la biblioteca JNI dentro del paquete. Un workflow en verde demuestra compilación, **no** una prueba física de rendimiento o inferencia en cada teléfono.
 
 ## Pruebas
 
 Actions ejecuta pruebas de disponibilidad real, estimación por cuantización/contexto, carga directa, catálogo y flujo completo de la interfaz, incluyendo temas, migración de historial, conversaciones y GitHub; el job `android-insets-test` compila para x86_64 y usa un emulador Android 15 para verificar el área segura, el botón Atrás con el menú abierto y que el tema claro también cambia el contenedor nativo. El APK de distribución sigue siendo ARM64. Los archivos se verifican por revisión, tamaño y SHA-256; no se ha probado cada modelo grande en un teléfono físico.
+
+Ese job también instala un GGUF Qwen Coder 0.5B fijado y verificado por SHA-256 únicamente como fixture de ingeniería. `NativeChatTest` usa el WebView y el puente Java/JNI reales para cargarlo, responder al saludo reportado, procesar más de 128 tokens, mostrar un error de contexto y volver a responder. No se añade ningún modelo al APK ni una prueba obligatoria a la carga del usuario. `android/tests/native/InferenceRegression.java` permite repetir las regresiones JNI en host con los GGUF de 7B del catálogo.
 
 ### Prueba en teléfono
 

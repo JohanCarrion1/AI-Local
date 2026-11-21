@@ -1,5 +1,21 @@
 # JNI inference smoke test
 
+## 2.3.1 blank-chat regression
+
+Compile `InferenceRegression.java` alongside the production `Engine.java` and run with the same host JNI library:
+
+```
+java -Djava.library.path=PATH_TO_HOST_LIBRARY -cp PATH_TO_CLASSES com.ailocal.app.InferenceRegression PATH_TO_GGUF
+```
+
+Before the fix, a prompt with more than 128 tokens reproduced a process abort at `GGML_ASSERT(n_tokens_all <= cparams.n_batch)`: the engine submitted 256-token chunks to a 128-token context batch. Both text and vision now use `llama_n_batch(ctx)`.
+
+The updated production JNI was tested on Linux CPU with the catalog's Qwen2.5-Coder-7B-Instruct Q4_K_M (4,683,073,536 bytes; SHA-256 `509287f78cb4d4cf6b3843734733b914b2c158e43e22a7f4bf5e963800894d3c`). With context 1024 / K Q8 / V F16 and two CPU threads it answered `Hola que tal` with `Hola! Estoy bien, gracias. ¿Y tú?`, returned `4` after a >128-token prompt, accepted cancellation during preparation, and returned `4` on retry. These are host JNI correctness checks, not performance claims for a phone. The short output caps belong only to this regression test; ordinary app responses still use the user's configured limit up to 2048 tokens.
+
+Android CI separately runs `NativeChatTest` with an SHA-verified Qwen Coder 0.5B engineering fixture through the real WebView, Java bridge, JNI and streamed response. The fixture is not bundled in the distribution APK or loaded as a product prerequisite.
+
+## Initial text and vision smoke
+
 `Smoke.java` uses the production `Engine.java` and the production JNI entrypoints. Compile `engine.cpp` with the pinned llama.cpp + mtmd libraries for the host, link it as `libailocal.so`, and compile both Java sources into package `com.ailocal.app`.
 
 Run with JDK 17:

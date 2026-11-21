@@ -290,6 +290,24 @@ h3 {
 .streaming {
   color: var(--ink);
 }
+.model-progress {
+  margin: 20px auto;
+  color: var(--accent-text);
+  font-size: 13px;
+}
+.operation-error {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  color: var(--muted);
+  background: var(--surface);
+}
+.operation-error p {
+  margin: 0;
+}
+.operation-error button {
+  color: var(--accent-text);
+}
 .composer-area {
   padding: 0 14px 9px;
   flex-shrink: 0;
