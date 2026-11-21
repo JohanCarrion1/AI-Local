@@ -1,4 +1,4 @@
-# AI Local · Android 2.3.1
+# AI Local · Android 2.4
 
 Asistente Android con inferencia **dentro de la aplicación**, sin Termux, Python, Ollama ni servidores. La nueva app nativa se encuentra en `android/`; el prototipo Python se conserva para escritorio.
 
@@ -15,6 +15,14 @@ El perfil al pie del menú despliega los ajustes: nombre local, tema oscuro/clar
 El historial se guarda en el almacenamiento local del WebView. No se sincroniza con cuentas externas y se elimina si se borran los datos de la app. Eliminar una conversación o todo el historial requiere confirmación; los modelos descargados y el token de GitHub se conservan. Solo hay una generación activa; cambiar de conversación o borrarla se bloquea mientras responde para evitar mezclar mensajes.
 
 La carga muestra el progreso de los pesos y la preparación del contexto. Antes del primer token se muestra el procesamiento del mensaje y el tiempo transcurrido. Los errores de inferencia y las respuestas vacías quedan visibles con Reintentar; el mensaje enviado se conserva sin duplicarlo. Si Android interrumpe una respuesta, al reabrir se permite reintentar. El compositor no incluye una advertencia fija; las estadísticas son opcionales desde el perfil.
+
+## Segundo plano y velocidad
+
+El modelo y la generación pertenecen a `InferenceService`, independiente de la Activity y del WebView. Al cargar un modelo se inicia un servicio en primer plano de tipo `specialUse`, con notificación visible y acciones para volver, detener la generación o liberar el modelo de la RAM. Se solicita el permiso de notificaciones en Android 13+; denegarlo no impide la inferencia, aunque Android puede ocultar esa notificación del panel. El perfil también permite liberar la RAM sin borrar los archivos descargados.
+
+Cambiar de app, volver o recrear la pantalla reconecta al mismo trabajo. El servicio guarda periódicamente la respuesta en un archivo atómico privado y sincroniza el resultado por identificador de conversación y petición, sin duplicarlo. Un bloqueo parcial de CPU mantiene el cálculo con la pantalla apagada solo mientras hay una carga o respuesta activa, con liberación al terminar, fallar o detenerse. El modelo queda disponible sin mantener despierta la CPU cuando está inactivo. No se reinicia una carga de varios GB sin intervención del usuario después de un cierre de proceso. Android todavía puede finalizar la app por memoria insuficiente o por un cierre forzado; en ese caso se recupera el texto guardado y se ofrece reintentar.
+
+Para reducir la espera entre turnos, el motor conserva la caché KV del prefijo exacto de tokens y procesa solo la parte nueva. Si cambian el historial, las instrucciones o el modelo se invalida la parte incompatible; en arquitecturas sin recorte parcial se vuelve al procesamiento completo. Visión conserva su ruta de procesamiento sin reutilizar embeddings de otra imagen. La transmisión a pantalla se agrupa a un máximo de 20 actualizaciones por segundo, no se redibuja el WebView mientras está oculto y PSS se muestrea cada dos segundos. Se conservan los modelos, cuantización, contexto y límite de respuesta elegidos; la mejora no se basa en recortar respuestas ni calidad.
 
 ## Uso
 
@@ -98,6 +106,8 @@ Actions compila el motor real, ejecuta lint, exige un APK, verifica la firma y c
 Actions ejecuta pruebas de disponibilidad real, estimación por cuantización/contexto, carga directa, catálogo y flujo completo de la interfaz, incluyendo temas, migración de historial, conversaciones y GitHub; el job `android-insets-test` compila para x86_64 y usa un emulador Android 15 para verificar el área segura, el botón Atrás con el menú abierto y que el tema claro también cambia el contenedor nativo. El APK de distribución sigue siendo ARM64. Los archivos se verifican por revisión, tamaño y SHA-256; no se ha probado cada modelo grande en un teléfono físico.
 
 Ese job también instala un GGUF Qwen Coder 0.5B fijado y verificado por SHA-256 únicamente como fixture de ingeniería. `NativeChatTest` usa el WebView y el puente Java/JNI reales para cargarlo, responder al saludo reportado, procesar más de 128 tokens, mostrar un error de contexto y volver a responder. No se añade ningún modelo al APK ni una prueba obligatoria a la carga del usuario. `android/tests/native/InferenceRegression.java` permite repetir las regresiones JNI en host con los GGUF de 7B del catálogo.
+
+La prueba Android también vuelve a Inicio durante la generación, espera su finalización sin recibir tokens en el WebView, vuelve al chat y recrea la Activity durante otra respuesta. Comprueba que se conserva la misma instancia del servicio y el modelo, que cada respuesta se importa una sola vez, que se reutilizan tokens y que el bloqueo de CPU se libera. `CacheRegression.java` verifica prefijo reutilizado, invalidación de sufijos y limpieza al volver a cargar el modelo en JNI de host. Las pruebas de interfaz cubren reconexión a respuestas en curso o completas, snapshots fuera de orden y recuperación de texto parcial tras un cierre de proceso.
 
 ### Prueba en teléfono
 

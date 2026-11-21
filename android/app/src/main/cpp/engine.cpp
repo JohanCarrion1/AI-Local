@@ -19,6 +19,12 @@ static std::atomic<bool> cancelled{false};
 static int generated_tokens = 0;
 static double generation_ms = 0;
 static bool compact_kv = false;
+static std::vector<llama_token> prompt_cache;
+static int reused_tokens = 0;
+static void clear_cache() {
+    prompt_cache.clear();
+    if(ctx) llama_memory_clear(llama_get_memory(ctx),true);
+}
 // Callbacks are local to the serialized JNI operation; never retain an Activity.
 struct Progress {
     JNIEnv * env;
@@ -41,6 +47,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_ailocal_app_Engine_stop(JNIEnv *,jcla
 extern "C" JNIEXPORT void JNICALL Java_com_ailocal_app_Engine_unload(JNIEnv *,jclass) {
     if(vision) mtmd_free(vision); if(ctx) llama_free(ctx); if(model) llama_model_free(model);
     vision=nullptr; ctx=nullptr; model=nullptr;
+    prompt_cache.clear(); reused_tokens=0;
 }
 extern "C" JNIEXPORT void JNICALL Java_com_ailocal_app_Engine_loadNative(JNIEnv * e,jclass c,jstring path,jstring projector,jint threads,jint context,jobject observer) {
     cancelled=false; Java_com_ailocal_app_Engine_unload(e,c); llama_backend_init();
@@ -82,10 +89,10 @@ extern "C" JNIEXPORT void JNICALL Java_com_ailocal_app_Engine_loadNative(JNIEnv 
 }
 extern "C" JNIEXPORT void JNICALL Java_com_ailocal_app_Engine_generateNative(JNIEnv * e,jclass,jobjectArray roles,jobjectArray texts,jbyteArray rgb,jint width,jint height,jint maxTokens,jobject sink,jobject observer) {
     if(!ctx) { fail(e,"Selecciona y carga un modelo."); return; }
-    auto started=std::chrono::steady_clock::now(); generated_tokens=0; generation_ms=0;
+    auto started=std::chrono::steady_clock::now(); generated_tokens=0; generation_ms=0; reused_tokens=0;
     const int context_size=(int)llama_n_ctx(ctx);
     int output_limit=std::max(1,std::min((int)maxTokens,2048));
-    cancelled=false; llama_memory_clear(llama_get_memory(ctx),true);
+    cancelled=false;
     Progress progress(e,observer);
     std::vector<std::string> rs,ts; int count=e->GetArrayLength(texts);
     for(int i=0;i<count;i++) { auto r=(jstring)e->GetObjectArrayElement(roles,i); auto t=(jstring)e->GetObjectArrayElement(texts,i); rs.push_back(str(e,r)); ts.push_back(str(e,t)); e->DeleteLocalRef(r); e->DeleteLocalRef(t); }
@@ -97,6 +104,8 @@ extern "C" JNIEXPORT void JNICALL Java_com_ailocal_app_Engine_generateNative(JNI
     std::vector<char> formatted(n+1); llama_chat_apply_template(tmpl,messages.data(),messages.size(),true,formatted.data(),formatted.size());
     auto vocab=llama_model_get_vocab(model); llama_pos past=0;
     if(rgb) {
+        // Image embeddings do not have a safe token-only reusable prefix.
+        clear_cache();
         auto data=e->GetByteArrayElements(rgb,nullptr); auto bitmap=mtmd_bitmap_init(width,height,(unsigned char*)data); e->ReleaseByteArrayElements(rgb,data,JNI_ABORT);
         auto chunks=mtmd_input_chunks_init(); mtmd_input_text text{formatted.data(),(size_t)n,true,true}; const mtmd_bitmap * bitmaps[]={bitmap};
         int code=mtmd_tokenize(vision,chunks,&text,bitmaps,1);
@@ -112,15 +121,24 @@ extern "C" JNIEXPORT void JNICALL Java_com_ailocal_app_Engine_generateNative(JNI
         if(nt<=0 || nt+8>=context_size) { fail(e,"Contexto completo. Inicia un chat nuevo."); return; }
         output_limit=std::min(output_limit,context_size-nt-1);
         std::vector<llama_token> tokens(nt); llama_tokenize(vocab,formatted.data(),n,tokens.data(),nt,true,true);
+        // Reuse only the exact token prefix already present in KV, retaining at
+        // least one fresh input token to produce valid logits for sampling.
+        int common=0;
+        while(common<nt-1 && common<(int)prompt_cache.size() && tokens[common]==prompt_cache[common]) common++;
+        if(!common || !llama_memory_seq_rm(llama_get_memory(ctx),0,common,-1)) {
+            clear_cache(); common=0;
+        } else prompt_cache.resize(common);
+        reused_tokens=common;
         // Never submit more than n_batch: llama.cpp aborts the process otherwise.
         const int batch_size=(int)llama_n_batch(ctx);
-        progress.emit("prompt",0,nt);
-        for(int i=0;i<nt;i+=batch_size) {
+        progress.emit("prompt",common,nt);
+        for(int i=common;i<nt;i+=batch_size) {
             int len=std::min(batch_size,nt-i); auto batch=llama_batch_get_one(tokens.data()+i,len);
-            if(cancelled) return;
+            if(cancelled) { clear_cache(); return; }
             int code=llama_decode(ctx,batch);
-            if(cancelled) return;
-            if(code) { fail(e,"Error al procesar el contexto. Intenta un contexto menor."); return; }
+            if(cancelled) { clear_cache(); return; }
+            if(code) { clear_cache(); fail(e,"Error al procesar el contexto. Intenta un contexto menor."); return; }
+            prompt_cache.insert(prompt_cache.end(),tokens.begin()+i,tokens.begin()+i+len);
             progress.emit("prompt",i+len,nt);
         } past=nt;
     }
@@ -136,8 +154,9 @@ extern "C" JNIEXPORT void JNICALL Java_com_ailocal_app_Engine_generateNative(JNI
         if(len>0) { emitted=true; auto bytes=e->NewByteArray(len); e->SetByteArrayRegion(bytes,0,len,(jbyte*)piece.data()); e->CallVoidMethod(sink,method,bytes); e->DeleteLocalRef(bytes); if(e->ExceptionCheck()) break; }
         if(cancelled || i+1==output_limit) break;
         auto batch=llama_batch_get_one(&token,1); int code=llama_decode(ctx,batch);
-        if(cancelled) break;
-        if(code) { fail(e,"Error durante la generación."); break; }
+        if(cancelled) { clear_cache(); break; }
+        if(code) { clear_cache(); fail(e,"Error durante la generación."); break; }
+        if(!rgb) prompt_cache.push_back(token);
     }
     generation_ms=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-started).count();
     llama_sampler_free(sampler); e->DeleteLocalRef(cls);
@@ -151,6 +170,7 @@ extern "C" JNIEXPORT jstring JNICALL Java_com_ailocal_app_Engine_stats(JNIEnv * 
         << ",\"modelBytes\":" << (model?llama_model_size(model):0)
         << ",\"cancelled\":" << (cancelled?"true":"false")
         << ",\"compactKv\":" << (compact_kv?"true":"false")
+        << ",\"cachedTokens\":" << reused_tokens
         << ",\"generatedTokens\":" << generated_tokens
         << ",\"generationMs\":" << generation_ms << "}";
     return e->NewStringUTF(out.str().c_str());

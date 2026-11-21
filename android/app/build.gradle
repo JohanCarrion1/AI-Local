@@ -8,8 +8,8 @@ android {
         minSdk 26
         targetSdk 35
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-        versionCode 6
-        versionName '2.3.1'
+        versionCode 7
+        versionName '2.4.0'
         ndk { abiFilters (project.findProperty('testAbi') ?: 'arm64-v8a') }
         externalNativeBuild { cmake { arguments '-DANDROID_STL=c++_shared'; cppFlags '-std=c++17' } }
     }

@@ -114,6 +114,7 @@ jobs:
           disable-animations: true
           script: |
             ./android/gradlew -p android --no-daemon --max-workers=2 -PtestAbi=x86_64 installDebug
+            adb shell pm grant com.ailocal.app android.permission.POST_NOTIFICATIONS
             adb shell run-as com.ailocal.app mkdir -p files
             adb shell 'run-as com.ailocal.app sh -c "cat > files/inference-fixture.gguf"' < "$RUNNER_TEMP/inference-fixture.gguf"
             ./android/gradlew -p android --no-daemon --max-workers=2 -PtestAbi=x86_64 connectedDebugAndroidTest
