@@ -10,8 +10,8 @@ assert sum(m['parameters'] >= 5 for m in models) > 10
 assert len({m['id'] for m in models}) == len(models)
 for model in models:
     assert re.fullmatch(r'[0-9a-f]{40}', model['revision'])
-    assert model['ram'] >= 2
-    assert model['memory'] > 0 and model['memory'] <= model['ram']
+    assert model['kvElementsPerToken'] > 0
+    assert model['architectureSource']
     assert model['parameters'] > 0
     assert model['kind'] in {'chat', 'code', 'reasoning', 'vision'}
     assert model['vision'] == (model['kind'] == 'vision')

@@ -29,10 +29,12 @@ public class MainActivity extends Activity {
   private android.content.SharedPreferences prefs;
   private DownloadManager dm;
   private volatile String active = "", token = "";
+  private volatile int activeContext = 0;
   private volatile byte[] image;
   private int imageWidth, imageHeight;
   private volatile boolean busy = false;
   private boolean destroyed = false;
+  private String interruptedLoad = "";
   private final Handler handler = new Handler(Looper.getMainLooper());
   private long lastResourceRefresh = 0;
   private final Runnable ticker =
@@ -61,6 +63,7 @@ public class MainActivity extends Activity {
     super.onCreate(state);
     prefs = getSharedPreferences("local", MODE_PRIVATE);
     dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+    recoverInterruptedLoad();
     try {
       models =
           new JSONArray(
@@ -128,7 +131,14 @@ public class MainActivity extends Activity {
           @Override
           public void onPageFinished(WebView v, String u) {
             if (u.equals("https://appassets.androidplatform.net/assets/index.html"))
-              io.execute(() -> snapshot());
+              io.execute(
+                  () -> {
+                    snapshot();
+                    if (!interruptedLoad.isEmpty()) {
+                      event("notice", interruptedLoad);
+                      interruptedLoad = "";
+                    }
+                  });
           }
         });
     web.addJavascriptInterface(new Bridge(), "Native");
@@ -184,6 +194,35 @@ public class MainActivity extends Activity {
     return true;
   }
 
+  private void recoverInterruptedLoad() {
+    String pending = prefs.getString("pendingLoad", "");
+    if (pending.isEmpty()) return;
+    try {
+      JSONObject attempt = new JSONObject(pending);
+      int previousPid = attempt.getInt("pid");
+      if (previousPid == android.os.Process.myPid()) return;
+      boolean memoryExit = false;
+      if (Build.VERSION.SDK_INT >= 30) {
+        ActivityManager manager = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
+        for (android.app.ApplicationExitInfo info :
+            manager.getHistoricalProcessExitReasons(getPackageName(), previousPid, 5)) {
+          if (info.getReason() == android.app.ApplicationExitInfo.REASON_LOW_MEMORY)
+            memoryExit = true;
+        }
+      }
+      interruptedLoad =
+          memoryExit
+              ? "Android cerró la carga anterior por memoria baja. Puedes usar Q3 o un"
+                  + " contexto menor."
+              : "La carga anterior se interrumpió; no hay confirmación de la causa. Puedes usar"
+                  + " Q3 o menos contexto.";
+    } catch (Exception ignored) {
+      interruptedLoad =
+          "La carga anterior se interrumpió. Puedes volver a cargar el modelo con menos contexto.";
+    }
+    prefs.edit().remove("pendingLoad").apply();
+  }
+
   private JSONObject resourceSample() throws Exception {
     return ResourceMonitor.sample(this)
         .put("storage", getExternalFilesDir(null).getUsableSpace() / 1073741824.0);
@@ -196,11 +235,22 @@ public class MainActivity extends Activity {
               .put("models", models)
               .put("storage", getExternalFilesDir(null).getUsableSpace() / 1073741824.0)
               .put("connected", !token.isEmpty())
-              .put("active", active);
+              .put("active", active)
+              .put("activeContext", activeContext);
       JSONArray ids = new JSONArray();
       for (int i = 0; i < models.length(); i++)
         if (installed(models.getJSONObject(i))) ids.put(models.getJSONObject(i).getString("id"));
       s.put("installed", ids);
+      JSONArray usage = new JSONArray();
+      for (Map.Entry<String, ?> entry : prefs.getAll().entrySet()) {
+        if (entry.getKey().startsWith("usage_")) {
+          try {
+            usage.put(new JSONObject((String) entry.getValue()));
+          } catch (Exception ignored) {
+          }
+        }
+      }
+      s.put("usage", usage);
       event("state", s);
     } catch (Exception e) {
       event("error", e.getMessage());
@@ -438,28 +488,37 @@ public class MainActivity extends Activity {
                   JSONObject m = model(p.getString("id"));
                   if (!installed(m)) throw new IOException("Primero descarga el modelo completo.");
                   active = "";
+                  activeContext = 0;
                   Engine.unload();
                   JSONObject resources = resourceSample();
                   event("resources", resources);
-                  if (resources.getBoolean("lowMemory")
-                      || resources.getDouble("budget") < m.getDouble("memory")) {
-                    snapshot();
-                    throw new IOException(
-                        String.format(
-                            java.util.Locale.ROOT,
-                            "No recomendado: este modelo necesita aproximadamente %.1f GB y el"
-                                + " presupuesto IA actual es %.1f GB. Cierra otras apps o elige un"
-                                + " modelo más pequeño.",
-                            m.getDouble("memory"),
-                            resources.getDouble("budget")));
-                  }
-                  snapshot();
+                  // Estimates inform the user; native allocation decides whether loading succeeds.
+                  int context =
+                      Math.max(
+                          m.getBoolean("vision") ? 2048 : 512,
+                          Math.min(4096, p.optInt("context", 1024)));
+                  prefs
+                      .edit()
+                      .putString(
+                          "pendingLoad",
+                          new JSONObject()
+                              .put("id", m.getString("id"))
+                              .put("pid", android.os.Process.myPid())
+                              .put("context", context)
+                              .toString())
+                      .commit();
                   JSONArray fs = m.getJSONArray("files");
                   Engine.load(
                       file(fs.getJSONObject(0)).getPath(),
                       m.getBoolean("vision") ? file(fs.getJSONObject(1)).getPath() : "",
-                      Math.max(1, Math.min(4, Runtime.getRuntime().availableProcessors() - 1)));
+                      Math.max(1, Math.min(4, Runtime.getRuntime().availableProcessors() - 1)),
+                      context);
+                  JSONObject profile = new JSONObject(Engine.stats());
+                  if (!profile.getBoolean("compactKv"))
+                    event("notice", "Este modelo usa caché F16; el motor no aceptó K en Q8.");
+                  prefs.edit().remove("pendingLoad").apply();
                   active = m.getString("id");
+                  activeContext = context;
                   snapshot();
                   image = null;
                   event("image", false);
@@ -469,6 +528,7 @@ public class MainActivity extends Activity {
                   if (active.equals(m.getString("id"))) {
                     Engine.unload();
                     active = "";
+                    activeContext = 0;
                   }
                   cancelDownload(m.getString("id"));
                   JSONArray fs = m.getJSONArray("files");
@@ -488,6 +548,8 @@ public class MainActivity extends Activity {
                     roles[i] = history.getJSONObject(i).getString("role");
                     texts[i] = history.getJSONObject(i).getString("content");
                   }
+                  double[] peakPss = {android.os.Debug.getPss() / 1024.0};
+                  int[] tokenSamples = {0};
                   ByteArrayOutputStream output = new ByteArrayOutputStream();
                   Engine.generate(
                       roles,
@@ -495,14 +557,46 @@ public class MainActivity extends Activity {
                       image,
                       imageWidth,
                       imageHeight,
+                      Math.max(1, Math.min(2048, p.optInt("maxTokens", 512))),
                       bytes -> {
                         output.write(bytes, 0, bytes.length);
+                        if (++tokenSamples[0] % 8 == 0)
+                          peakPss[0] = Math.max(peakPss[0], android.os.Debug.getPss() / 1024.0);
                         event("answer", new String(output.toByteArray(), StandardCharsets.UTF_8));
                       });
+                  JSONObject measured = new JSONObject(Engine.stats());
+                  int tokens = measured.getInt("generatedTokens");
+                  JSONObject result =
+                      new JSONObject()
+                          .put("id", active)
+                          .put("context", measured.getInt("context"))
+                          .put("compactKv", measured.getBoolean("compactKv"))
+                          .put("tokens", tokens)
+                          .put("generationMs", measured.getDouble("generationMs"))
+                          .put(
+                              "tps",
+                              tokens * 1000.0 / Math.max(1, measured.getDouble("generationMs")))
+                          .put(
+                              "peakPssMiB",
+                              Math.max(peakPss[0], android.os.Debug.getPss() / 1024.0))
+                          .put("stopped", measured.optBoolean("cancelled"));
+                  prefs
+                      .edit()
+                      .putString("usage_" + active + "_" + activeContext, result.toString())
+                      .apply();
+                  event("metrics", result);
                   image = null;
                   event("done", true);
+                  snapshot();
                 }
               } catch (Throwable e) {
+                if (action.equals("load")) {
+                  prefs.edit().remove("pendingLoad").apply();
+                  Engine.unload();
+                  active = "";
+                  activeContext = 0;
+                  snapshot();
+                }
                 event("error", e.getMessage() == null ? "Error del motor local" : e.getMessage());
                 event("done", false);
               } finally {
