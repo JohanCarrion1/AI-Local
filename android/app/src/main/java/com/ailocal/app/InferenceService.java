@@ -74,6 +74,7 @@ public class InferenceService extends Service {
   private volatile boolean busy;
   private volatile boolean foreground;
   private volatile boolean closing;
+  private volatile boolean cancelRequested;
   private volatile boolean releasing;
   private AtomicFile journal;
   private PowerManager.WakeLock wake;
@@ -198,19 +199,21 @@ public class InferenceService extends Service {
       revision++;
     }
     long now = SystemClock.elapsedRealtime();
-    if (durable || now - lastDisk >= 1000) {
-      FileOutputStream out = null;
-      try {
-        byte[] bytes;
-        synchronized (lock) {
-          bytes = job.toString().getBytes(StandardCharsets.UTF_8);
+    synchronized (journal) {
+      if (durable || now - lastDisk >= 1000) {
+        FileOutputStream out = null;
+        try {
+          byte[] bytes;
+          synchronized (lock) {
+            bytes = job.toString().getBytes(StandardCharsets.UTF_8);
+          }
+          out = journal.startWrite();
+          out.write(bytes);
+          journal.finishWrite(out);
+          lastDisk = now;
+        } catch (Exception e) {
+          if (out != null) journal.failWrite(out);
         }
-        out = journal.startWrite();
-        out.write(bytes);
-        journal.finishWrite(out);
-        lastDisk = now;
-      } catch (Exception e) {
-        if (out != null) journal.failWrite(out);
       }
     }
     if (foreground && (durable || now - lastNotification >= 1000)) {
@@ -314,7 +317,10 @@ public class InferenceService extends Service {
   }
 
   void stopGeneration() {
-    if (busy) Engine.stop();
+    if (busy) {
+      cancelRequested = true;
+      Engine.stop();
+    }
   }
 
   void releaseModel() {
@@ -341,6 +347,7 @@ public class InferenceService extends Service {
     synchronized (lock) {
       if (busy) throw new IllegalStateException("Hay una operación del modelo en curso.");
       busy = true;
+      cancelRequested = false;
       job = new JSONObject();
       set("id", request.optString("requestId", UUID.randomUUID().toString()));
       set("sessionId", request.optString("sessionId"));
@@ -353,6 +360,7 @@ public class InferenceService extends Service {
     worker.execute(
         () -> {
           try {
+            if (closing || cancelRequested) throw new IOException("Ejecución detenida.");
             holdCpu();
             publish(true);
             if (action.equals("load")) load(request);
@@ -382,6 +390,7 @@ public class InferenceService extends Service {
   }
 
   private void progress(String phase, int current, int total) {
+    if (closing || cancelRequested) Engine.stop();
     try {
       set(
           "progress",
