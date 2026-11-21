@@ -9,10 +9,18 @@ final class Engine {
     void onToken(byte[] text);
   }
 
-  static native void load(String model, String projector, int threads);
+  static native void load(String model, String projector, int threads, int context);
 
   static native void generate(
-      String[] roles, String[] messages, byte[] rgb, int width, int height, Sink sink);
+      String[] roles,
+      String[] messages,
+      byte[] rgb,
+      int width,
+      int height,
+      int maxTokens,
+      Sink sink);
+
+  static native String stats();
 
   static native void stop();
 

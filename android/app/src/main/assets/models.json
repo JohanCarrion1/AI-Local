@@ -7,8 +7,6 @@
     "parameters": 8,
     "kind": "reasoning",
     "quant": "Q4_K_M",
-    "ram": 8,
-    "memory": 6.5,
     "description": "Razonamiento, programación y conversación multilingüe. Usa /no_think para respuestas directas.",
     "vision": false,
     "files": [
@@ -18,7 +16,30 @@
         "sha256": "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785",
         "url": "https://huggingface.co/Qwen/Qwen3-8B-GGUF/resolve/7c41481f57cb95916b40956ab2f0b139b296d974/Qwen3-8B-Q4_K_M.gguf"
       }
-    ]
+    ],
+    "kvElementsPerToken": 73728,
+    "architectureSource": "Qwen/Qwen3-8B"
+  },
+  {
+    "id": "qwen3-8-q3",
+    "name": "Qwen3 · 8B · compacto Q3",
+    "repo": "unsloth/Qwen3-8B-GGUF",
+    "revision": "a6adef130ffb23ddaf1a62fec9dced968c9bc482",
+    "parameters": 8,
+    "kind": "reasoning",
+    "quant": "Q3_K_M",
+    "description": "Razonamiento, programación y conversación multilingüe. Usa /no_think para respuestas directas. Variante Q3: menor tamaño y posible pérdida de precisión.",
+    "vision": false,
+    "files": [
+      {
+        "file": "Qwen3-8B-Q3_K_M.gguf",
+        "size": 4124161856,
+        "sha256": "4924cf38a3b3c4b27ead5ccb93e27027f9418738506ac50a24a70dfe8581a007",
+        "url": "https://huggingface.co/unsloth/Qwen3-8B-GGUF/resolve/a6adef130ffb23ddaf1a62fec9dced968c9bc482/Qwen3-8B-Q3_K_M.gguf"
+      }
+    ],
+    "kvElementsPerToken": 73728,
+    "architectureSource": "Qwen/Qwen3-8B"
   },
   {
     "id": "qwen3-14",
@@ -28,8 +49,6 @@
     "parameters": 14,
     "kind": "reasoning",
     "quant": "Q4_K_M",
-    "ram": 16,
-    "memory": 11,
     "description": "Más capacidad de razonamiento y generación de código; para dispositivos con mucha RAM.",
     "vision": false,
     "files": [
@@ -39,7 +58,9 @@
         "sha256": "500a8806e85ee9c83f3ae08420295592451379b4f8cf2d0f41c15dffeb6b81f0",
         "url": "https://huggingface.co/Qwen/Qwen3-14B-GGUF/resolve/530227a7d994db8eca5ab5ced2fb692b614357fd/Qwen3-14B-Q4_K_M.gguf"
       }
-    ]
+    ],
+    "kvElementsPerToken": 81920,
+    "architectureSource": "Qwen/Qwen3-14B"
   },
   {
     "id": "qwen3-32",
@@ -49,8 +70,6 @@
     "parameters": 32,
     "kind": "reasoning",
     "quant": "Q4_K_M",
-    "ram": 32,
-    "memory": 24,
     "description": "Modelo grande de razonamiento y código. Exigente incluso en teléfonos de gama alta.",
     "vision": false,
     "files": [
@@ -60,7 +79,9 @@
         "sha256": "efd971561896866f0e910cce52761ca77b1b138090c7f15fe284676d57d1f689",
         "url": "https://huggingface.co/Qwen/Qwen3-32B-GGUF/resolve/938a7432affaec9157f883a87164e2646ae17555/Qwen3-32B-Q4_K_M.gguf"
       }
-    ]
+    ],
+    "kvElementsPerToken": 131072,
+    "architectureSource": "Qwen/Qwen3-32B"
   },
   {
     "id": "qwen25-14",
@@ -70,8 +91,6 @@
     "parameters": 14,
     "kind": "chat",
     "quant": "Q4_K_M",
-    "ram": 16,
-    "memory": 11,
     "description": "Asistente multilingüe para redacción, análisis y seguimiento de instrucciones.",
     "vision": false,
     "files": [
@@ -81,7 +100,9 @@
         "sha256": "e47ad95dad6ff848b431053b375adb5d39321290ea2c638682577dafca87c008",
         "url": "https://huggingface.co/bartowski/Qwen2.5-14B-Instruct-GGUF/resolve/05244aa5d871c661c80082a15d3bce44714d068d/Qwen2.5-14B-Instruct-Q4_K_M.gguf"
       }
-    ]
+    ],
+    "kvElementsPerToken": 98304,
+    "architectureSource": "Qwen/Qwen2.5-14B-Instruct"
   },
   {
     "id": "coder14",
@@ -91,8 +112,6 @@
     "parameters": 14,
     "kind": "code",
     "quant": "Q4_K_M",
-    "ram": 16,
-    "memory": 11,
     "description": "Código, depuración y refactorización de proyectos con mayor complejidad.",
     "vision": false,
     "files": [
@@ -102,7 +121,9 @@
         "sha256": "2946d28c9e1bb2bcae6d42e8678863a31775df6f740315c7d7e6d6b6411f5937",
         "url": "https://huggingface.co/bartowski/Qwen2.5-Coder-14B-Instruct-GGUF/resolve/5b379ec4bf71bafecb5f9081ad28b19939128988/Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf"
       }
-    ]
+    ],
+    "kvElementsPerToken": 98304,
+    "architectureSource": "Qwen/Qwen2.5-Coder-14B-Instruct"
   },
   {
     "id": "coder32",
@@ -112,8 +133,6 @@
     "parameters": 32,
     "kind": "code",
     "quant": "Q4_K_M",
-    "ram": 32,
-    "memory": 24,
     "description": "La variante grande de Qwen2.5 Coder, con un consumo de memoria elevado.",
     "vision": false,
     "files": [
@@ -123,7 +142,9 @@
         "sha256": "8e2fd78ff55e7cdf577fda257bac2776feb7d73d922613caf35468073807e815",
         "url": "https://huggingface.co/bartowski/Qwen2.5-Coder-32B-Instruct-GGUF/resolve/40b525506a4f98ed425882fa6dfc90cc8139065e/Qwen2.5-Coder-32B-Instruct-Q4_K_M.gguf"
       }
-    ]
+    ],
+    "kvElementsPerToken": 131072,
+    "architectureSource": "Qwen/Qwen2.5-Coder-32B-Instruct"
   },
   {
     "id": "r1-qwen7",
@@ -133,8 +154,6 @@
     "parameters": 7,
     "kind": "reasoning",
     "quant": "Q4_K_M",
-    "ram": 8,
-    "memory": 6,
     "description": "Razonamiento destilado para problemas de lógica, matemáticas y código.",
     "vision": false,
     "files": [
@@ -144,7 +163,9 @@
         "sha256": "731ece8d06dc7eda6f6572997feb9ee1258db0784827e642909d9b565641937b",
         "url": "https://huggingface.co/bartowski/DeepSeek-R1-Distill-Qwen-7B-GGUF/resolve/361004151d4f4f6b446dc5e6d46fbf4422a80d5f/DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf"
       }
-    ]
+    ],
+    "kvElementsPerToken": 28672,
+    "architectureSource": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"
   },
   {
     "id": "r1-qwen14",
@@ -154,8 +175,6 @@
     "parameters": 14,
     "kind": "reasoning",
     "quant": "Q4_K_M",
-    "ram": 16,
-    "memory": 11,
     "description": "Razonamiento destilado de mayor capacidad para problemas complejos.",
     "vision": false,
     "files": [
@@ -165,7 +184,9 @@
         "sha256": "0b319bd0572f2730bfe11cc751defe82045fad5085b4e60591ac2cd2d9633181",
         "url": "https://huggingface.co/bartowski/DeepSeek-R1-Distill-Qwen-14B-GGUF/resolve/9f5d77d401799416e0702290a691038b44012e0c/DeepSeek-R1-Distill-Qwen-14B-Q4_K_M.gguf"
       }
-    ]
+    ],
+    "kvElementsPerToken": 98304,
+    "architectureSource": "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B"
   },
   {
     "id": "r1-llama8",
@@ -175,8 +196,6 @@
     "parameters": 8,
     "kind": "reasoning",
     "quant": "Q4_K_M",
-    "ram": 10,
-    "memory": 7,
     "description": "Variante de razonamiento sobre Llama 8B. Puede producir respuestas extensas.",
     "vision": false,
     "files": [
@@ -186,7 +205,9 @@
         "sha256": "87bcba20b4846d8dadf753d3ff48f9285d131fc95e3e0e7e934d4f20bc896f5d",
         "url": "https://huggingface.co/bartowski/DeepSeek-R1-Distill-Llama-8B-GGUF/resolve/935d400c2ed1a29cc2a1045df25ec7998fb4dfe4/DeepSeek-R1-Distill-Llama-8B-Q4_K_M.gguf"
       }
-    ]
+    ],
+    "kvElementsPerToken": 65536,
+    "architectureSource": "deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
   },
   {
     "id": "llama31",
@@ -196,8 +217,6 @@
     "parameters": 8,
     "kind": "chat",
     "quant": "Q4_K_M",
-    "ram": 10,
-    "memory": 7,
     "description": "Conversación, escritura y asistencia general en varios idiomas.",
     "vision": false,
     "files": [
@@ -207,7 +226,9 @@
         "sha256": "7b064f5842bf9532c91456deda288a1b672397a54fa729aa665952863033557c",
         "url": "https://huggingface.co/bartowski/Meta-Llama-3.1-8B-Instruct-GGUF/resolve/bf5b95e96dac0462e2a09145ec66cae9a3f12067/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf"
       }
-    ]
+    ],
+    "kvElementsPerToken": 65536,
+    "architectureSource": "meta-llama/Llama-3.1-8B-Instruct"
   },
   {
     "id": "mistral7",
@@ -217,8 +238,6 @@
     "parameters": 7,
     "kind": "chat",
     "quant": "Q4_K_M",
-    "ram": 8,
-    "memory": 6,
     "description": "Asistente general compacto dentro de la familia de modelos 7B.",
     "vision": false,
     "files": [
@@ -228,7 +247,9 @@
         "sha256": "1270d22c0fbb3d092fb725d4d96c457b7b687a5f5a715abe1e818da303e562b6",
         "url": "https://huggingface.co/bartowski/Mistral-7B-Instruct-v0.3-GGUF/resolve/61fd4167fff3ab01ee1cfe0da183fa27a944db48/Mistral-7B-Instruct-v0.3-Q4_K_M.gguf"
       }
-    ]
+    ],
+    "kvElementsPerToken": 65536,
+    "architectureSource": "mistralai/Mistral-7B-Instruct-v0.3"
   },
   {
     "id": "nemo12",
@@ -238,8 +259,6 @@
     "parameters": 12,
     "kind": "chat",
     "quant": "Q4_K_M",
-    "ram": 16,
-    "memory": 10.5,
     "description": "Modelo multilingüe para escritura, análisis y conversaciones detalladas.",
     "vision": false,
     "files": [
@@ -249,7 +268,9 @@
         "sha256": "7c1a10d202d8788dbe5628dc962254d10654c853cae6aaeca0618f05490d4a46",
         "url": "https://huggingface.co/bartowski/Mistral-Nemo-Instruct-2407-GGUF/resolve/a2dd64a0a76ea1bdb2bb6ab6fa5496b003c7c908/Mistral-Nemo-Instruct-2407-Q4_K_M.gguf"
       }
-    ]
+    ],
+    "kvElementsPerToken": 81920,
+    "architectureSource": "mistralai/Mistral-Nemo-Instruct-2407"
   },
   {
     "id": "gemma9",
@@ -259,8 +280,6 @@
     "parameters": 9,
     "kind": "chat",
     "quant": "Q4_K_M",
-    "ram": 12,
-    "memory": 8.5,
     "description": "Asistente de Google para tareas generales, explicación y redacción.",
     "vision": false,
     "files": [
@@ -270,7 +289,9 @@
         "sha256": "13b2a7b4115bbd0900162edcebe476da1ba1fc24e718e8b40d32f6e300f56dfe",
         "url": "https://huggingface.co/bartowski/gemma-2-9b-it-GGUF/resolve/d731033f3dc4018261fd39896e50984d398b4ac5/gemma-2-9b-it-Q4_K_M.gguf"
       }
-    ]
+    ],
+    "kvElementsPerToken": 172032,
+    "architectureSource": "google/gemma-2-9b-it"
   },
   {
     "id": "phi4",
@@ -280,8 +301,6 @@
     "parameters": 14,
     "kind": "reasoning",
     "quant": "Q4_K_M",
-    "ram": 16,
-    "memory": 12,
     "description": "Modelo de Microsoft orientado a razonamiento, matemáticas y tareas técnicas.",
     "vision": false,
     "files": [
@@ -291,7 +310,9 @@
         "sha256": "009aba717c09d4a35890c7d35eb59d54e1dba884c7c526e7197d9c13ab5911d9",
         "url": "https://huggingface.co/bartowski/phi-4-GGUF/resolve/19cd65f97c2f1712a81c506611d3f9c94b16a1e1/phi-4-Q4_K_M.gguf"
       }
-    ]
+    ],
+    "kvElementsPerToken": 102400,
+    "architectureSource": "microsoft/phi-4"
   },
   {
     "id": "qwenvl7",
@@ -301,8 +322,6 @@
     "parameters": 7,
     "kind": "vision",
     "quant": "Q4_K_M",
-    "ram": 12,
-    "memory": 8,
     "description": "Imágenes y texto: preguntas sobre fotos, documentos y contenido visual.",
     "vision": true,
     "files": [
@@ -318,14 +337,15 @@
         "sha256": "2ddb555391bae966e412deab9e07b58afa18bcc06930ba0f1c78a3695ab9e506",
         "url": "https://huggingface.co/ggml-org/Qwen2.5-VL-7B-Instruct-GGUF/resolve/508edd0afaa66bb9e9f40587acc2184f02daf1f6/mmproj-Qwen2.5-VL-7B-Instruct-Q8_0.gguf"
       }
-    ]
+    ],
+    "kvElementsPerToken": 28672,
+    "architectureSource": "Qwen/Qwen2.5-VL-7B-Instruct"
   },
   {
     "id": "qwen7",
     "name": "Qwen Coder · 7B",
     "repo": "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF",
     "revision": "13fb94bfda8c8cf22497dc57b78f391a9acb426a",
-    "ram": 8,
     "vision": false,
     "files": [
       {
@@ -337,16 +357,37 @@
     ],
     "parameters": 7,
     "kind": "code",
-    "memory": 6,
     "description": "Generación, explicación y refactorización de código.",
-    "quant": "Q4_K_M"
+    "quant": "Q4_K_M",
+    "kvElementsPerToken": 28672,
+    "architectureSource": "Qwen/Qwen2.5-Coder-7B-Instruct"
+  },
+  {
+    "id": "qwen7-q3",
+    "name": "Qwen Coder · 7B · compacto Q3",
+    "repo": "bartowski/Qwen2.5-Coder-7B-Instruct-GGUF",
+    "revision": "1f629da0c8bed16b9e50cee91c70693650e66c35",
+    "vision": false,
+    "files": [
+      {
+        "file": "Qwen2.5-Coder-7B-Instruct-Q3_K_M.gguf",
+        "size": 3808391968,
+        "sha256": "be81e2dafa06d02825dd3a20142c14af0e89087de1b7ce15fbc56f0d8dc8f6b6",
+        "url": "https://huggingface.co/bartowski/Qwen2.5-Coder-7B-Instruct-GGUF/resolve/1f629da0c8bed16b9e50cee91c70693650e66c35/Qwen2.5-Coder-7B-Instruct-Q3_K_M.gguf"
+      }
+    ],
+    "parameters": 7,
+    "kind": "code",
+    "description": "Generación, explicación y refactorización de código. Variante Q3: menor tamaño y posible pérdida de precisión.",
+    "quant": "Q3_K_M",
+    "kvElementsPerToken": 28672,
+    "architectureSource": "Qwen/Qwen2.5-Coder-7B-Instruct"
   },
   {
     "id": "abl7",
     "name": "Qwen Coder · 7B Abliterated",
     "repo": "bartowski/Qwen2.5-Coder-7B-Instruct-abliterated-GGUF",
     "revision": "a416f57ecabe9841551055493e6945895e54e135",
-    "ram": 8,
     "vision": false,
     "files": [
       {
@@ -358,16 +399,16 @@
     ],
     "parameters": 7,
     "kind": "code",
-    "memory": 6,
     "description": "Variante comunitaria abliterated de Qwen Coder. Revisa sus respuestas antes de utilizarlas.",
-    "quant": "Q4_K_M"
+    "quant": "Q4_K_M",
+    "kvElementsPerToken": 28672,
+    "architectureSource": "Qwen/Qwen2.5-Coder-7B-Instruct"
   },
   {
     "id": "qwen05",
     "name": "Qwen Coder · 0.5B",
     "repo": "Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF",
     "revision": "ebb2015119c907b064c512bf053e945850b5875f",
-    "ram": 2,
     "vision": false,
     "files": [
       {
@@ -379,16 +420,16 @@
     ],
     "parameters": 0.5,
     "kind": "code",
-    "memory": 1.5,
     "description": "Para tareas rápidas de programación en dispositivos con menos memoria.",
-    "quant": "Q4_K_M"
+    "quant": "Q4_K_M",
+    "kvElementsPerToken": 6144,
+    "architectureSource": "Qwen/Qwen2.5-Coder-0.5B-Instruct"
   },
   {
     "id": "qwen3",
     "name": "Qwen Coder · 3B",
     "repo": "Qwen/Qwen2.5-Coder-3B-Instruct-GGUF",
     "revision": "f74adce6aa16316c625447af059dbebe4983757c",
-    "ram": 5,
     "vision": false,
     "files": [
       {
@@ -400,16 +441,16 @@
     ],
     "parameters": 3,
     "kind": "code",
-    "memory": 3.5,
     "description": "Código y depuración con menor consumo de memoria que los modelos grandes.",
-    "quant": "Q4_K_M"
+    "quant": "Q4_K_M",
+    "kvElementsPerToken": 18432,
+    "architectureSource": "Qwen/Qwen2.5-Coder-3B-Instruct"
   },
   {
     "id": "smol",
     "name": "SmolVLM · 500M",
     "repo": "ggml-org/SmolVLM-500M-Instruct-GGUF",
     "revision": "72e986006ef53e37cdd3f6d4241c90b0f01df376",
-    "ram": 3,
     "vision": true,
     "files": [
       {
@@ -427,8 +468,9 @@
     ],
     "parameters": 0.5,
     "kind": "vision",
-    "memory": 2.2,
     "description": "Modelo visual ligero para preguntas sencillas sobre fotos.",
-    "quant": "Q8_0"
+    "quant": "Q8_0",
+    "kvElementsPerToken": 20480,
+    "architectureSource": "HuggingFaceTB/SmolVLM-500M-Instruct"
   }
 ]

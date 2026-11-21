@@ -10,33 +10,36 @@ public class ResourceBudgetTest {
   }
 
   @Test
-  public void screenshotUsesFreeMemoryNotPhysicalRam() {
+  public void fiveGiBAvailableIsNotArtificiallyCappedAtTwoOrSixtyPercent() {
+    long budget = ResourceBudget.usable(gb(7.2), gb(5), gb(.2), -1, false, false);
+    assertEquals(gb(4.75), budget);
+    assertTrue(budget > gb(4.5));
+    assertTrue(budget < gb(5));
+  }
+
+  @Test
+  public void currentAvailabilityStaysSeparateFromTotal() {
     long budget = ResourceBudget.usable(gb(7.2), gb(2.5), gb(.2), -1, false, false);
-    assertTrue(budget > 0);
-    assertTrue(budget < gb(2.5));
-    assertEquals(gb(2.5) - ResourceBudget.reserve(gb(7.2), gb(.2)), budget);
+    assertEquals(gb(2.25), budget);
   }
 
   @Test
-  public void eightGbClassPhoneNeverAssumesAllRamUsable() {
-    long budget = ResourceBudget.usable(gb(7.2), gb(7.0), gb(.2), -1, false, false);
-    assertTrue(budget <= gb(4.5));
-    assertTrue(ResourceBudget.usable(gb(7.2), gb(4.5), gb(.2), -1, false, false) < gb(4.5));
+  public void measuredCgroupLimitsStillConstrainHeadroom() {
+    assertEquals(
+        gb(1) - 128 * ResourceBudget.MIB,
+        ResourceBudget.usable(gb(7.2), gb(5), gb(.2), gb(1), false, false));
   }
 
   @Test
-  public void lowMemoryAndCgroupLimitsReduceBudget() {
-    assertEquals(0, ResourceBudget.usable(gb(7.2), gb(4.5), gb(.2), -1, true, false));
-    long limited = ResourceBudget.usable(gb(7.2), gb(4.5), gb(.2), gb(1), false, false);
-    assertEquals(gb(1) - 128 * ResourceBudget.MIB, limited);
-    long normal = ResourceBudget.usable(gb(7.2), gb(4.5), gb(.2), -1, false, false);
-    assertTrue(ResourceBudget.usable(gb(7.2), gb(4.5), gb(.2), -1, false, true) < normal);
+  public void pressureIsAReportedSignalNotAnInventedPercentageCut() {
+    assertEquals(
+        ResourceBudget.usable(gb(7.2), gb(5), gb(.2), -1, false, false),
+        ResourceBudget.usable(gb(7.2), gb(5), gb(.2), -1, true, true));
   }
 
   @Test
-  public void missingMemoryNeverBecomesRecommendedBudget() {
+  public void missingMemoryDoesNotInventFreeRam() {
     assertEquals(0, ResourceBudget.usable(0, 0, 0, -1, false, false));
-    assertEquals(0, ResourceBudget.usable(gb(7.2), -1, 0, -1, false, false));
     assertEquals(0, ResourceBudget.usable(gb(7.2), gb(.1), gb(.2), -1, false, false));
   }
 }

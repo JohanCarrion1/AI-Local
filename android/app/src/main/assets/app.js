@@ -3,20 +3,35 @@ const $=id=>document.getElementById(id), command=(action,data={})=>{if(window.Na
 let conversationModel=localStorage.getItem('chatModel')||'';
 let state={models:[],installed:[],ram:0,available:0},filter='powerful',messages=[],running=false,attachment=false,answer='',fileSha='',opened=null,pending=null;
 try{messages=JSON.parse(localStorage.getItem('chat')||'[]');if(!Array.isArray(messages))messages=[];}catch(_){messages=[];}
-function assessModel(model, device=state) {
- const reasons=[];
- const installed=(device.installed||[]).includes(model.id);
- if(device.lowMemory) reasons.push('Android informa de memoria baja.');
- if(device.pressure) reasons.push('Se detecta presión de memoria en el sistema.');
- const bytes=model.files.reduce((sum,file)=>sum+file.size,0);
- if(!Number.isFinite(device.ram)||!Number.isFinite(device.budget)) reasons.push('No se pudieron comprobar los recursos.');
- else {
-  if(device.ram<model.ram) reasons.push('RAM total: '+device.ram.toFixed(1)+' / '+model.ram+' GB mínimos.');
-  if(device.budget<model.memory) reasons.push('Presupuesto IA: '+device.budget.toFixed(1)+' / '+model.memory+' GB estimados.');
- }
- if(!installed&&(!Number.isFinite(device.storage)||device.storage*1073741824<bytes+268435456)) reasons.push('Espacio insuficiente: se necesitan '+((bytes+268435456)/1073741824).toFixed(1)+' GB libres.');
- return {recommended:reasons.length===0,reasons,bytes};
+function contextFor(model){return Math.max(model.vision?2048:512,Number($('contextTokens').value)||1024);}
+function memoryEstimate(model,context=contextFor(model)){
+ const weights=model.files.reduce((sum,file)=>sum+file.size,0)/1073741824;
+ const elements=model.kvElementsPerToken*context;
+ // K=Q8_0 (34 bytes/32 elements), V=F16; include F16 fallback in the upper bound.
+ const lower=weights+elements*1.53125/1073741824+(model.vision?.375:.125);
+ const upper=weights+elements*2/1073741824+(model.vision?.75:.375);
+ return {lower,upper,context,weights};
 }
+function assessModel(model,device=state){
+ const estimate=memoryEstimate(model),reasons=[];
+ const installed=(device.installed||[]).includes(model.id);
+ const bytes=model.files.reduce((sum,file)=>sum+file.size,0);
+ let level='fit',label='Margen estimado suficiente';
+ if(!installed&&(!Number.isFinite(device.storage)||device.storage*1073741824<bytes+268435456)){
+  level='storage';label='Espacio insuficiente';reasons.push('Se necesitan '+((bytes+268435456)/1073741824).toFixed(1)+' GiB libres para descargar.');
+ }else if(!Number.isFinite(device.available)||!Number.isFinite(device.budget)){
+  level='trial';label='Requiere prueba local';reasons.push('No se pudo medir la memoria disponible.');
+ }else if(estimate.lower>device.ram){
+  level='large';label='No recomendado';reasons.push('La estimación ('+estimate.lower.toFixed(2)+'–'+estimate.upper.toFixed(2)+' GiB) supera los '+device.ram.toFixed(1)+' GiB de RAM física visible.');
+ }else if(device.lowMemory||device.pressure||device.budget<estimate.upper){
+  level='trial';label=device.budget>=estimate.lower?'Posible con margen ajustado':'Requiere prueba local';
+  reasons.push('Estimación '+estimate.lower.toFixed(2)+'–'+estimate.upper.toFixed(2)+' GiB; disponible ahora '+device.available.toFixed(1)+' GiB.');
+  if(device.budget<estimate.lower)reasons.push('Cierra otras apps para liberar memoria antes de probar.');
+  if(device.lowMemory||device.pressure)reasons.push('Android indica memoria baja o presión de memoria.');
+ }
+ return {recommended:level==='fit',level,label,reasons,bytes,estimate};
+}
+$('contextTokens').onchange=()=>renderModels();
 function visibleModels(){
  const query=$('modelSearch').value.trim().toLocaleLowerCase('es');
  return state.models.filter(m=>(filter==='all'||filter==='powerful'&&m.parameters>=5||filter===m.kind||filter==='installed'&&state.installed.includes(m.id))&&(!query||(m.name+' '+m.repo+' '+m.description).toLocaleLowerCase('es').includes(query)));
@@ -24,7 +39,7 @@ function visibleModels(){
 $('modelSearch').oninput=()=>renderModels();
 function el(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e;}
 function toast(text,error=false){$('toast').textContent=text||'Ocurrió un error';$('toast').className=error?'error':'';clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('toast').className='hidden',7500);}
-function confirmAction(title,text,fn){$('confirmTitle').textContent=title;$('confirmText').textContent=text;pending=fn;$('confirm').showModal();}
+function confirmAction(title,text,fn,label='Continuar'){$('confirmYes').textContent=label;$('confirmTitle').textContent=title;$('confirmText').textContent=text;pending=fn;$('confirm').showModal();}
 $('confirmNo').onclick=()=>{$('confirm').close();pending=null;};$('confirmYes').onclick=()=>{$('confirm').close();if(pending)pending();pending=null;};
 function page(id){document.querySelectorAll('.page').forEach(p=>p.classList.toggle('hidden',p.id!==id));document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('current',b.dataset.page===id));window.scrollTo(0,0);}
 document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>page(b.dataset.page));document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{filter=b.dataset.filter;document.querySelectorAll('[data-filter]').forEach(x=>x.classList.toggle('selected',x===b));renderModels();});
@@ -40,24 +55,26 @@ function renderModels(){
   const category={vision:'IMAGEN + TEXTO',code:'CÓDIGO',reasoning:'RAZONAMIENTO',chat:'CONVERSACIÓN'}[m.kind];
   title.append(el('h3','',m.name),el('small','',category+' · '+m.parameters+'B · '+m.quant));top.append(icon,title);
   card.append(top,el('p','',m.description));
-  const stats=el('div','stats');stats.append(el('span','',(assessment.bytes/1e9).toFixed(2)+' GB de descarga'),el('span','',m.ram+' GB RAM total mínima'),el('span','',m.memory+' GB de presupuesto IA estimado'));card.append(stats);
+  const stats=el('div','stats');stats.append(el('span','',(assessment.bytes/1e9).toFixed(2)+' GB de descarga'),el('span','',assessment.estimate.context+' tokens de contexto'),el('span','',assessment.estimate.lower.toFixed(2)+'–'+assessment.estimate.upper.toFixed(2)+' GiB estimados'));card.append(stats);
   const status=el('div','recommendation'+(!assessment.recommended?' not-recommended':''));
-  status.append(el('strong','',assessment.recommended?'Dentro de recursos estimados':'No recomendado'));
+  status.append(el('strong','',assessment.label));
   if(!assessment.recommended)status.append(el('small','',assessment.reasons.join(' ')));
-  else status.append(el('small','','La velocidad y el consumo real dependen del procesador y del contexto.'));
+  else status.append(el('small','','Estimación de pesos + caché KV + búferes. mmap y la memoria recuperable pueden cambiar el consumo real.'));
   card.append(status);
-  const actions=el('div','actions'),btn=el('button',available?'secondary':'primary',available?(state.active===m.id?'En uso ✓':'Usar modelo'):'Descargar ↓');
+  const actions=el('div','actions'),btn=el('button',available?'secondary':'primary',available?(state.active===m.id&&state.activeContext===contextFor(m)?'En uso ✓':'Cargar y probar'):'Descargar ↓');
   btn.onclick=()=>{
    if(available){
+    if(state.active===m.id&&state.activeContext===contextFor(m)){page('chat');return;}
     if(running)return;
-    const load=()=>{setBusy(true);toast('Cargando modelo en memoria…');command('load',{id:m.id});};
-    if(!assessment.recommended)confirmAction('No recomendado para tu dispositivo',assessment.reasons.join('\n')+'\nSe volverán a medir los recursos antes de cargarlo. Si el presupuesto IA sigue siendo insuficiente, se conservará la descarga sin cargar el modelo.',load);else load();
+    const load=()=>{setBusy(true);toast('Probando el modelo en el teléfono…');command('load',{id:m.id,context:contextFor(m),trial:true});};
+    if(!assessment.recommended)confirmAction('Probar en este teléfono',assessModel(m).reasons.join('\n')+'\nSe intentará cargar con contexto '+contextFor(m)+' y generar hasta 16 tokens. La estimación no bloquea esta prueba. Si Android se queda sin memoria puede cerrar la app.',load,'Probar ahora');else load();
    }else{
-    const warning=assessment.recommended?'': 'No recomendado para tu dispositivo.\n'+assessment.reasons.join('\n')+'\n\n';
+    const warning=assessment.recommended?'': assessment.label+'.\n'+assessment.reasons.join('\n')+'\n\n';
     confirmAction('Descargar '+m.name,warning+(assessment.bytes/1e9).toFixed(2)+' GB. Se recomienda Wi-Fi. La descarga no garantiza que el teléfono pueda ejecutar el modelo.',()=>command('download',{id:m.id}));
    }
   };
   actions.append(btn);card.append(actions);
+  const tested=(state.trials||[]).find(t=>t.id===m.id&&t.context===contextFor(m));if(tested){card.append(el('p','trial-result',tested.status==='passed'?'Texto probado en este teléfono · '+tested.context+' de contexto · '+tested.tokens+' tokens · '+tested.tps.toFixed(1)+' tokens/s · PSS máximo muestreado '+tested.peakPssMiB.toFixed(0)+' MiB':'Prueba anterior: '+tested.status));}
   const progress=el('div','hidden');progress.id='progress-'+m.id;card.append(progress);
   if(available){const remove=el('button','quiet','Eliminar del teléfono');remove.onclick=()=>confirmAction('Eliminar modelo','Se borrarán los archivos descargados de '+m.name+'.',()=>command('delete',{id:m.id}));card.append(remove);}
   root.append(card);
@@ -79,6 +96,7 @@ window.receive=(type,data)=>{switch(type){
  case 'resources':state={...state,...data};renderResources(state);renderModels();break;
  case 'notice':toast(data);break;
  case 'error':toast(data,true);$('save').disabled=false;break;
+ case 'trial':toast(data.status==='passed'?'Prueba local completada: '+data.tokens+' tokens, '+data.tps.toFixed(1)+' tokens/s.':'La prueba se interrumpió.');break;
  case 'loaded':if(conversationModel&&conversationModel!==data)messages=[];conversationModel=data;persist();setBusy(false);renderChat();page('chat');toast('Modelo listo. Ya puedes conversar sin internet.');break;
  case 'answer':answer=data;renderChat();break;
  case 'done':if(answer){messages.push({role:'assistant',content:answer});persist();}else if(data===false&&messages.at(-1)?.role==='user'){const failed=messages.pop();$('prompt').value=failed.content;persist();}answer='';setBusy(false);attachment=false;$('attachment').classList.add('hidden');renderChat();break;
@@ -95,11 +113,11 @@ $('askFile').onclick=()=>{if(!state.active)return toast('Carga primero un modelo
 
 function renderResources(data){
  $('deviceTitle').textContent=data.device||'Tu dispositivo';
- $('deviceDetail').textContent='Presupuesto IA: '+data.budget.toFixed(1)+' GB · '+data.storage.toFixed(1)+' GB de espacio';
- $('ramTotal').textContent=data.ram.toFixed(1)+' GB';
- $('ramFree').textContent=data.available.toFixed(1)+' GB';
- $('ramBudget').textContent=data.budget.toFixed(1)+' GB';
- $('ramReserve').textContent=data.reserve.toFixed(1)+' GB';
- $('resourceSource').textContent=(data.source||'Medición del sistema')+' · '+(data.lowMemory?'Memoria baja':data.pressure?'Presión de memoria':data.pressureKnown===false?'Presión de memoria no accesible':'Sin presión detectada')+(data.pssMiB!==undefined?' · App PSS '+data.pssMiB.toFixed(0)+' MiB':'')+'. El presupuesto IA es una estimación prudente, no toda la RAM física.';
+ $('deviceDetail').textContent='Disponible ahora: '+data.available.toFixed(1)+' GiB · '+data.storage.toFixed(1)+' GB de espacio';
+ $('ramTotal').textContent=data.ram.toFixed(1)+' GiB';
+ $('ramFree').textContent=data.available.toFixed(1)+' GiB';
+ $('ramBudget').textContent=data.budget.toFixed(1)+' GiB';
+ $('ramReserve').textContent=data.reserve.toFixed(1)+' GiB';
+ $('resourceSource').textContent=(data.source||'Medición del sistema')+' · '+(data.lowMemory?'Memoria baja':data.pressure?'Presión de memoria':data.pressureKnown===false?'Presión de memoria no accesible':'Sin presión detectada')+(data.pssMiB!==undefined?' · App PSS '+data.pssMiB.toFixed(0)+' MiB':'')+'. El margen orientativo no es un límite impuesto por Android ni bloquea una prueba de carga.';
 }
 $('refreshResources').onclick=()=>{command('state');toast('Actualizando recursos del teléfono…');};

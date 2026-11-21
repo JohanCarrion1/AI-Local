@@ -10,27 +10,39 @@ with sync_playwright() as p:
  errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
  page.add_init_script('window.calls=[];window.Native={command:(a,d)=>window.calls.push([a,JSON.parse(d)])};')
  page.goto('http://127.0.0.1:8765')
- state=dict(models=models,installed=['qwen05','smol'],ram=7.2,available=2.5,budget=1.9,reserve=.6,storage=103.3,connected=False,active='qwen05',device='Teléfono de prueba',lowMemory=False,pressure=False,source='ActivityManager + /proc/meminfo')
+ state=dict(models=models,installed=['qwen05','smol'],ram=7.2,available=2.5,budget=2.25,reserve=.25,storage=103.3,connected=False,active='qwen05',device='Teléfono de prueba',lowMemory=False,pressure=False,source='ActivityManager + /proc/meminfo')
  page.evaluate('(s)=>receive("state",s)',state)
  assert page.locator('#models article').count()==sum(m['parameters']>=5 for m in models)>10
- assert page.locator('#models article .not-recommended').count()==page.locator('#models article').count()
- assert page.locator('#ramTotal').inner_text()=='7.2 GB'
- assert page.locator('#ramFree').inner_text()=='2.5 GB'
- assert page.locator('#ramBudget').inner_text()=='1.9 GB'
+ assert page.locator('#ramTotal').inner_text()=='7.2 GiB'
+ assert page.locator('#ramFree').inner_text()=='2.5 GiB'
  assert '7.2' not in page.locator('#deviceTitle').inner_text()
- assert not page.evaluate('assessModel(state.models.find(m=>m.id==="qwen3-8")).recommended')
- page.locator('[data-model="qwen3-8"] .actions button').click()
- assert 'No recomendado' in page.locator('#confirmText').inner_text()
- page.locator('#confirmNo').click()
+ five=dict(ram=7.2,available=5,budget=4.75,storage=100,installed=[])
+ # 7.2 GiB physical RAM does not fail an arbitrary nominal 8 GB minimum.
+ q4=page.evaluate('(d)=>assessModel(state.models.find(m=>m.id==="qwen7"),d)',five)
+ assert q4['level']=='trial' and q4['label']=='Posible con margen ajustado'
+ assert all('8 GB' not in reason and 'mínimos' not in reason for reason in q4['reasons'])
+ for model in ('qwen7-q3','qwen3-8-q3'):
+  assert page.evaluate('(x)=>assessModel(state.models.find(m=>m.id===x.id),x.device).recommended',dict(id=model,device=five))
+ page.select_option('#contextTokens','512')
+ short=page.evaluate('memoryEstimate(state.models.find(m=>m.id==="qwen7")).upper')
+ page.select_option('#contextTokens','4096')
+ assert page.evaluate('memoryEstimate(state.models.find(m=>m.id==="qwen7")).upper')>short
+ page.select_option('#contextTokens','1024')
+ # Insufficient estimates warn but explicitly permit a bounded real trial.
+ state['installed'].append('qwen7')
+ page.evaluate('(s)=>receive("state",s)',state)
+ page.locator('[data-model="qwen7"] .actions button').click()
+ assert page.locator('#confirmTitle').inner_text()=='Probar en este teléfono'
+ page.locator('#confirmYes').click()
+ call=page.evaluate('calls.at(-1)')
+ assert call==['load',{'id':'qwen7','context':1024,'trial':True}]
+ page.evaluate('receive("idle",true)')
  page.locator('#modelSearch').fill('Llama')
  assert page.locator('#models article').count()>=2
  page.locator('#modelSearch').fill('')
  page.locator('[data-filter="all"]').click()
  assert page.locator('#models article').count()==len(models)
- # A large-memory device is assessed by usable budget, not just its total RAM.
- assert page.evaluate('assessModel(state.models.find(m=>m.id==="qwen3-14"),{ram:24,available:18,budget:14,storage:100,installed:[]}).recommended')
- assert not page.evaluate('assessModel(state.models.find(m=>m.id==="qwen3-14"),{ram:24,available:18,budget:2,storage:100,installed:[]}).recommended')
- assert not page.evaluate('assessModel(state.models.find(m=>m.id==="qwen05"),{ram:8,available:4,budget:3,storage:0,installed:[]}).recommended')
+ assert not page.evaluate('assessModel(state.models.find(m=>m.id==="qwen05"),{ram:8,available:5,budget:4.75,storage:0,installed:[]}).recommended')
  assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
  page.get_by_role('button',name='Visión',exact=True).click();assert page.locator('#models article').count()==sum(m['vision'] for m in models)
  page.locator('nav [data-page="chat"]').click();page.locator('#prompt').fill('Hola <img src=x onerror=alert(1)> 👋');page.locator('#send').click()
