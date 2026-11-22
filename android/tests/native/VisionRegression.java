@@ -7,11 +7,17 @@ import java.util.Locale;
 /** Uses actual pixels, never color names in the prompt or a substitute response. */
 public class VisionRegression {
   private static final String SYSTEM = "Answer briefly. Identify the image accurately.";
-  private static final String QUESTION = "What is the dominant color in this picture?";
+  private static final String QUESTION = "What color is the square in the center of this picture?";
 
   private static byte[] pixels(int channel) {
     byte[] image = new byte[224 * 224 * 3];
-    for (int i = channel; i < image.length; i += 3) image[i] = (byte) 255;
+    java.util.Arrays.fill(image, (byte) 255);
+    for (int y = 28; y < 196; y++)
+      for (int x = 28; x < 196; x++) {
+        int i = (y * 224 + x) * 3;
+        image[i] = image[i + 1] = image[i + 2] = 0;
+        image[i + channel] = (byte) 255;
+      }
     return image;
   }
 
@@ -39,7 +45,7 @@ public class VisionRegression {
     String again =
         ask(
             new String[] {"system", "user", "assistant", "user"},
-            new String[] {SYSTEM, QUESTION, red, "What color was the picture?"},
+            new String[] {SYSTEM, QUESTION, red, "What color was that square?"},
             pixels(0),
             1);
     color(again, "red");
