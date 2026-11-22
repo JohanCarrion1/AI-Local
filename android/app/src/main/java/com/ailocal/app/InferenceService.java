@@ -591,7 +591,7 @@ public class InferenceService extends Service {
           image,
           width,
           height,
-          Math.max(1, Math.min(2048, request.optInt("maxTokens", 1024))),
+          Math.max(1, Math.min(4096, request.optInt("maxTokens", 2048))),
           bytes -> {
             output.write(bytes, 0, bytes.length);
             long now = SystemClock.elapsedRealtime();

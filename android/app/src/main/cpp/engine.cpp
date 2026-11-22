@@ -148,7 +148,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_ailocal_app_Engine_generateImage(JNIE
     auto started=std::chrono::steady_clock::now(); finish_reason="error"; context_shifts=trimmed_tokens=0; generated_tokens=0; generation_ms=0; reused_tokens=0;
     prompt_ms=image_ms=decode_ms=first_token_ms=0; prompt_tokens=image_tokens=0; reused_image=image_processed=false;
     const int context_size=(int)llama_n_ctx(ctx);
-    const int requested_limit=std::max(1,std::min((int)maxTokens,2048));
+    const int requested_limit=std::max(1,std::min((int)maxTokens,4096));
     int output_limit=requested_limit;
     cancelled=false;
     Progress progress(e,observer);
