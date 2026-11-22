@@ -552,6 +552,7 @@ public class InferenceService extends Service {
         imageIndex = i;
     }
     if (request.optString("responseStyle", "direct").equals("direct")
+        && ModelStore.find(models, active).optString("kind").equals("reasoning")
         && ModelStore.find(models, active)
             .optString("repo")
             .toLowerCase(java.util.Locale.ROOT)

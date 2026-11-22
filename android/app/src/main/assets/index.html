@@ -121,8 +121,9 @@
             placeholder="Buscar Qwen, DeepSeek, Llama, Mistral…"
           />
           <div class="filters">
-            <button class="selected" data-filter="powerful">
-              Potentes · 5B+</button
+            <button class="selected" data-filter="mobile">
+              Para tu celular · 3–6B</button
+            ><button data-filter="powerful">Grandes · 7B+</button
             ><button data-filter="all">Todos</button
             ><button data-filter="code">Código</button
             ><button data-filter="reasoning">Razonamiento</button
@@ -372,7 +373,8 @@
         </select>
         <small
           >La resolución visual se aplica al volver a cargar el modelo.
-          Detallada puede tardar más.</small
+          Detallada puede tardar más. Los modelos de resolución fija conservan
+          su formato visual nativo.</small
         >
         <label for="contextTokens">Contexto del modelo</label
         ><select id="contextTokens">
@@ -465,7 +467,7 @@
       </section>
       <small id="settingsStatus" role="status"
         >Los ajustes se guardan en este teléfono.</small
-      ><small class="version">Auren · 2.6</small>
+      ><small class="version">Auren · 2.7</small>
     </dialog>
     <dialog
       id="modelPicker"

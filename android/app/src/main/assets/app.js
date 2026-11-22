@@ -81,7 +81,7 @@ store.currentId = current.id;
 let messages = current.messages,
   conversationModel = current.modelId || "";
 let state = { models: [], installed: [], ram: 0, available: 0 },
-  filter = "powerful",
+  filter = "mobile",
   imagePreparing = false,
   imageFailed = false,
   running = false,
@@ -930,7 +930,9 @@ function visibleModels() {
   return state.models.filter(
     (m) =>
       (filter === "all" ||
-        (filter === "powerful" && m.parameters >= 5) ||
+        (filter === "mobile" && m.parameters >= 3 && m.parameters <= 6) ||
+        (filter === "powerful" && m.parameters >= 7) ||
+        (filter === "code" && m.skills?.includes("code")) ||
         filter === m.kind ||
         (filter === "installed" && state.installed.includes(m.id))) &&
       (!query ||
@@ -976,8 +978,8 @@ function renderModels() {
   $("catalogCount").textContent =
     state.models.length +
     " modelos · " +
-    state.models.filter((m) => m.parameters >= 5).length +
-    " de 5B+";
+    state.models.filter((m) => m.parameters >= 3 && m.parameters <= 6).length +
+    " de 3–6B";
   $("resultCount").textContent = visible.length + " modelos en esta vista";
   visible.forEach((m) => {
     const assessment = assessModel(m),
