@@ -137,3 +137,8 @@ La prueba Android también vuelve a Inicio durante la generación, espera su fin
 La identidad gráfica se documenta en `android/branding/README.md`. Los archivos Python y su CI heredado siguen siendo independientes del APK.
 
 La regresión visual de 2.6 usa el selector Android real con respuestas interceptadas de MediaStore: miniatura, recreación de Activity, envío al servicio y JNI, dos imágenes con píxeles distintos y reutilización de la misma foto en una pregunta posterior. Un job ARM64 adicional descarga **Qwen2.5-VL 7B completo** del catálogo y exige respuestas diferentes a imágenes roja/azul, sin nombres de colores en el prompt, además de comprobar la caché visual. Las fixtures pequeñas del emulador son exclusivamente pruebas de integración y no sustituyen los modelos elegidos por el usuario. Los tiempos del runner no constituyen una medición del Samsung SM-A366E.
+
+## Recomendación por RAM y exportación
+
+- En la lista de modelos aparece "★ Recomendado para tu teléfono": el modelo general más grande cuya estimación de memoria no supera el 45 % de la RAM física (se deja el resto a Android) y que cabe con el margen actual. Es una estimación, no una garantía.
+- Cada respuesta tiene "Guardar como…" (.pdf, .docx, .md, .html, .txt). Usa el selector de archivos de Android, sin permisos adicionales. Los .docx y .pdf se generan sin librerías externas (`Exporter.java`, con pruebas en `ExporterTest`); el PDF usa fuentes estándar y caracteres latinos (otros alfabetos o emojis salen como `?`).

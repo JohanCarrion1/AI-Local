@@ -97,7 +97,7 @@ with sync_playwright() as p:
     page.locator('#historySearch').fill('primera')
     assert page.locator('.history-item').count()==1
     page.locator('.history-item').click()
-    assert page.locator('.bubble.assistant').inner_text().endswith('Primera respuesta guardada.\nCopiar')
+    assert page.locator('.bubble.assistant').inner_text().endswith('Primera respuesta guardada.\nCopiar\nGuardar como…')
     assert page.evaluate('current.id')==first_id
     page.reload();page.evaluate('(s)=>receive("state",s)', state)
     assert page.evaluate('store.sessions.length')==2
@@ -128,6 +128,9 @@ with sync_playwright() as p:
     five=dict(ram=7.2,available=5,budget=4.75,storage=100,installed=[])
     assert page.evaluate('(d)=>assessModel(state.models.find(m=>m.id==="qwen7"),d).level',five)!='large'
     assert page.evaluate('(d)=>assessModel(state.models.find(m=>m.id==="qwen7-q3"),d).recommended',five)
+    rec=page.evaluate('()=>{state.ram=7.2;state.available=5;state.budget=4.75;state.storage=100;return recommendedModelId()}')
+    assert rec and page.evaluate('(id)=>{const m=state.models.find(x=>x.id===id);return m.kind!=="reasoning"&&assessModel(m).estimate.upper<=state.ram*.45}',rec)
+    assert page.evaluate('()=>{state.ram=0;return recommendedModelId()}') is None
 
     # Explicit preferred-model auto-loading is persistent and happens only once per launch.
     settings(page)

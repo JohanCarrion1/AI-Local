@@ -360,6 +360,11 @@ h3 {
   gap: 3px;
   margin-top: 8px;
 }
+.export-formats {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
 .message-actions button {
   font-size: 10px;
   min-height: 32px;
@@ -1125,4 +1130,11 @@ input[type="checkbox"] {
 }
 :root[data-mode="light"] .not-recommended strong {
   color: #925129;
+}
+
+.recommended-badge {
+  color: var(--accent-text);
+  font-size: 12px;
+  font-weight: 700;
+  margin: 6px 0 0;
 }
