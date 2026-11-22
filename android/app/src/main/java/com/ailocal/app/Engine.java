@@ -56,7 +56,8 @@ final class Engine {
         maxTokens,
         sink,
         progress,
-        rgb == null ? -1 : messages.length - 1);
+        rgb == null ? -1 : messages.length - 1,
+        true);
   }
 
   static native void generateImage(
@@ -68,7 +69,8 @@ final class Engine {
       int maxTokens,
       Sink sink,
       Progress progress,
-      int imageIndex);
+      int imageIndex,
+      boolean allowHistoryWindow);
 
   static native String stats();
 

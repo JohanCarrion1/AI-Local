@@ -173,6 +173,33 @@ public class NativeChatTest {
     await("!running && messages.filter(m=>m.role==='assistant').length === 1", 60);
     assertEquals("false", evaluate("!!chatFailure"));
 
+    // Return while JNI is still writing, rather than only after it finishes.
+    evaluate(
+        "newConversation();document.getElementById('responseTokens').value='512';"
+            + "document.getElementById('prompt').value='Cuenta del 1 al 10000 sin saltarte números,"
+            + " separados por comas.';document.getElementById('send').click()");
+    await("state.inference.busy && state.inference.job.action === 'chat'", 30);
+    String liveJob = service.snapshot().getJSONObject("job").getString("id");
+    assertTrue(
+        InstrumentationRegistry.getInstrumentation()
+            .getUiAutomation()
+            .performGlobalAction(
+                android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_HOME));
+    long liveDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(60);
+    while (service.snapshot().getJSONObject("job").optString("answer").length() < 20
+        && service.snapshot().getBoolean("busy")
+        && System.nanoTime() < liveDeadline) Thread.sleep(50);
+    assertTrue(
+        "Tokens must advance without a visible WebView",
+        service.snapshot().getJSONObject("job").optString("answer").length() >= 20);
+    assertTrue("The test must reattach while generation is active", service.isBusy());
+    InstrumentationRegistry.getInstrumentation().getTargetContext().startActivity(reopen);
+    await("running && !!document.querySelector('.streaming') && answer.length > 0", 30);
+    assertEquals(liveJob, service.snapshot().getJSONObject("job").getString("id"));
+    await("!running && messages.filter(m=>m.role==='assistant').length === 1", 180);
+    assertEquals("false", evaluate("!!chatFailure"));
+    evaluate("document.getElementById('responseTokens').value='256'");
+
     // Recreating the Activity must reconnect to the same model and in-flight reply.
     evaluate(
         "newConversation();document.getElementById('prompt').value='dato '.repeat(160)+' Cuenta del"

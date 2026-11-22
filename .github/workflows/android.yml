@@ -141,7 +141,7 @@ jobs:
           cmake -S android/tests/native -B build/native -DCMAKE_BUILD_TYPE=Release
           cmake --build build/native -j 4
           mkdir -p build/classes
-          javac -d build/classes android/app/src/main/java/com/ailocal/app/Engine.java android/tests/native/VisionRegression.java android/tests/native/CodeRegression.java
+          javac -d build/classes android/app/src/main/java/com/ailocal/app/Engine.java android/tests/native/VisionRegression.java android/tests/native/CodeRegression.java android/tests/native/WindowRegression.java
       - name: Download verified full mobile model
         run: python3 android/tests/download_fixtures.py "$RUNNER_TEMP/auren-fixtures" "${{ matrix.model }}"
       - name: Verify actual vision pixels or generated code on ARM64
@@ -153,6 +153,7 @@ jobs:
           if [ "$MODEL" = qwen3-instruct4 ]; then
             java -Djava.library.path=build/native/bin -cp build/classes com.ailocal.app.CodeRegression "$RUNNER_TEMP/auren-fixtures/$MODEL-0.gguf" "$PWD/build/native/bin" generated.py 2>&1 | tee "$MODEL.log"
             python3 android/tests/validate_generated_code.py generated.py
+            java -Djava.library.path=build/native/bin -cp build/classes com.ailocal.app.WindowRegression "$RUNNER_TEMP/auren-fixtures/$MODEL-0.gguf" "$PWD/build/native/bin" 2>&1 | tee -a "$MODEL.log"
           else
             java -Djava.library.path=build/native/bin -cp build/classes com.ailocal.app.VisionRegression "$RUNNER_TEMP/auren-fixtures/$MODEL-0.gguf" "$RUNNER_TEMP/auren-fixtures/$MODEL-1.gguf" "$PWD/build/native/bin" 2>&1 | tee "$MODEL.log"
           fi

@@ -84,7 +84,8 @@ public class InferenceService extends Service {
   private volatile boolean releasing;
   private AtomicFile journal;
   private PowerManager.WakeLock wake;
-  private long lastDisk, lastNotification;
+  private long lastDisk, lastNotification, lastBackgroundCheck;
+  private boolean backgroundRestricted;
 
   @Override
   public void onCreate() {
@@ -190,6 +191,11 @@ public class InferenceService extends Service {
 
   JSONObject snapshot() {
     synchronized (lock) {
+      if (Build.VERSION.SDK_INT >= 28
+          && SystemClock.elapsedRealtime() - lastBackgroundCheck > 5000) {
+        backgroundRestricted = getSystemService(ActivityManager.class).isBackgroundRestricted();
+        lastBackgroundCheck = SystemClock.elapsedRealtime();
+      }
       try {
         return new JSONObject()
             .put("active", active)
@@ -200,6 +206,7 @@ public class InferenceService extends Service {
             .put("busy", busy || releasing)
             .put("releasing", releasing)
             .put("foreground", foreground)
+            .put("backgroundRestricted", backgroundRestricted)
             .put("wakeHeld", wake != null && wake.isHeld())
             .put("job", new JSONObject(job.toString()))
             .put("selectedImage", new JSONObject(selectedImage.toString()))
@@ -584,7 +591,7 @@ public class InferenceService extends Service {
           image,
           width,
           height,
-          Math.max(1, Math.min(2048, request.optInt("maxTokens", 512))),
+          Math.max(1, Math.min(2048, request.optInt("maxTokens", 1024))),
           bytes -> {
             output.write(bytes, 0, bytes.length);
             long now = SystemClock.elapsedRealtime();
@@ -592,14 +599,15 @@ public class InferenceService extends Service {
               peakPss[0] = Math.max(peakPss[0], android.os.Debug.getPss() / 1024.0);
               lastPss[0] = now;
             }
-            if (now - lastEmission[0] >= (listeners.isEmpty() ? 333 : 50)) {
+            if (now - lastEmission[0] >= (listeners.isEmpty() ? 333 : 100)) {
               set("answer", new String(output.toByteArray(), StandardCharsets.UTF_8));
               publish(false);
               lastEmission[0] = now;
             }
           },
           this::progress,
-          imageIndex);
+          imageIndex,
+          request.optJSONObject("workspace") == null);
     } finally {
       set("answer", new String(output.toByteArray(), StandardCharsets.UTF_8));
     }
@@ -614,6 +622,9 @@ public class InferenceService extends Service {
             .put("context", measured.getInt("context"))
             .put("compactKv", measured.getBoolean("compactKv"))
             .put("tokens", tokens)
+            .put("finishReason", measured.optString("finishReason"))
+            .put("contextShifts", measured.optInt("contextShifts"))
+            .put("trimmedTokens", measured.optInt("trimmedTokens"))
             .put("generationMs", measured.getDouble("generationMs"))
             .put(
                 "tps",

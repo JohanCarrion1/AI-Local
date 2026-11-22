@@ -24,7 +24,16 @@ public class VisionRegression {
   private static String ask(String[] roles, String[] texts, byte[] image, int imageIndex) {
     ByteArrayOutputStream output = new ByteArrayOutputStream();
     Engine.generateImage(
-        roles, texts, image, 224, 224, 32, b -> output.write(b, 0, b.length), null, imageIndex);
+        roles,
+        texts,
+        image,
+        224,
+        224,
+        32,
+        b -> output.write(b, 0, b.length),
+        null,
+        imageIndex,
+        true);
     return new String(output.toByteArray(), StandardCharsets.UTF_8);
   }
 

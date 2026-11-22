@@ -278,11 +278,14 @@ h3 {
 }
 .welcome h1 {
   font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(28px, 6.8vw, 40px);
+  font-size: clamp(21px, 5.4vw, 26px);
   line-height: 1.2;
   font-weight: 400;
-  letter-spacing: -1px;
-  margin: 0 0 12px;
+  letter-spacing: -0.5px;
+  max-width: 300px;
+  margin: 0 auto 10px;
+  text-align: center;
+  text-wrap: balance;
 }
 .welcome p {
   font-size: 12px;
@@ -957,9 +960,100 @@ dialog p {
   gap: 20px;
 }
 .custom-color input {
-  width: 50px;
-  height: 40px;
-  padding: 3px;
+  width: 116px;
+  min-height: 42px;
+  font-family: monospace;
+}
+.color-palette {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 14px;
+  margin: 16px 0 0;
+  min-width: 0;
+}
+.color-palette legend {
+  font-size: 12px;
+  color: var(--muted);
+  padding: 0 5px;
+}
+.color-plane {
+  position: relative;
+  height: 145px;
+  border-radius: 10px;
+  touch-action: none;
+  background:
+    linear-gradient(to top, #000, transparent),
+    linear-gradient(to right, #fff, transparent), hsl(var(--hue, 22), 100%, 50%);
+  cursor: crosshair;
+}
+.color-cursor {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border: 2px solid white;
+  box-shadow: 0 0 0 1px #000;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.color-palette input[type="range"] {
+  width: 100%;
+  min-height: 32px;
+  padding: 0;
+  accent-color: var(--accent);
+}
+.hue-slider {
+  appearance: none;
+  background: linear-gradient(to right, red, #ff0, #0f0, #0ff, #00f, #f0f, red);
+  height: 12px;
+  min-height: 12px !important;
+  border-radius: 16px;
+  margin: 10px 0 14px;
+}
+.hue-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 23px;
+  height: 23px;
+  border: 2px solid white;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: 0 0 0 1px #000;
+}
+.color-fine {
+  display: flex;
+  gap: 16px;
+}
+.color-fine label {
+  width: 50%;
+  min-width: 0;
+}
+.message-code {
+  white-space: pre;
+  overflow-x: auto;
+  font: 12px/1.65 monospace;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  margin: 12px 0;
+  max-width: 100%;
+}
+.message-code code {
+  font: inherit;
+}
+.message-text.formatted {
+  white-space: normal;
+}
+.message-paragraph {
+  white-space: pre-wrap;
+}
+.finish-note {
+  color: var(--muted);
+  font-size: 11px;
+  margin: 8px 0 0;
+}
+.continue-answer {
+  color: var(--accent-text);
 }
 .switch-row {
   display: flex;
