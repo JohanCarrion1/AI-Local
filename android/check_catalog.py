@@ -5,10 +5,10 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 models = json.loads((Path(__file__).parent / 'app/src/main/assets/models.json').read_text())
-assert len(models) >= 32
+assert len(models) >= 31
 mobile = [m for m in models if 3 <= m['parameters'] <= 6]
-assert len(mobile) >= 11
-assert sum(m['vision'] for m in mobile) >= 4
+assert len(mobile) >= 10
+assert sum(m['vision'] for m in mobile) >= 3
 assert sum(m['kind'] == 'code' for m in mobile) >= 5
 local_files = {}
 assert sum(m['parameters'] >= 5 for m in models) > 10

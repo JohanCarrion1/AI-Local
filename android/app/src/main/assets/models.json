@@ -123,33 +123,6 @@
     "architectureSource": "openbmb/MiniCPM-V-4"
   },
   {
-    "id": "gemma3-4",
-    "name": "Gemma 3 Instruct · 4B",
-    "repo": "ggml-org/gemma-3-4b-it-GGUF",
-    "revision": "d0976223747697cb51e056d85c532013931fe52e",
-    "parameters": 4,
-    "kind": "vision",
-    "quant": "Q4_K_M",
-    "description": "Modelo de Google para conversación multilingüe, fotos y documentos. Su formato visual usa atención no causal y un bloque de imagen completo.",
-    "vision": true,
-    "files": [
-      {
-        "file": "gemma-3-4b-it-Q4_K_M.gguf",
-        "size": 2489757856,
-        "sha256": "882e8d2db44dc554fb0ea5077cb7e4bc49e7342a1f0da57901c0802ea21a0863",
-        "url": "https://huggingface.co/ggml-org/gemma-3-4b-it-GGUF/resolve/d0976223747697cb51e056d85c532013931fe52e/gemma-3-4b-it-Q4_K_M.gguf"
-      },
-      {
-        "file": "gemma-3-4b-mmproj-f16.gguf",
-        "size": 851251104,
-        "sha256": "8c0fb064b019a6972856aaae2c7e4792858af3ca4561be2dbf649123ba6c40cb",
-        "url": "https://huggingface.co/ggml-org/gemma-3-4b-it-GGUF/resolve/d0976223747697cb51e056d85c532013931fe52e/mmproj-model-f16.gguf"
-      }
-    ],
-    "kvElementsPerToken": 69632,
-    "architectureSource": "google/gemma-3-4b-it"
-  },
-  {
     "id": "qwen3-4",
     "name": "Qwen3 · 4B",
     "repo": "Qwen/Qwen3-4B-GGUF",

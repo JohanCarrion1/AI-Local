@@ -105,7 +105,7 @@ with sync_playwright() as p:
 
     # Existing model catalog and realistic resource estimates remain functional.
     navigate(page,'library')
-    assert page.locator('#models article').count()==sum(3<=m['parameters']<=6 for m in models)>=11
+    assert page.locator('#models article').count()==sum(3<=m['parameters']<=6 for m in models)>=10
     assert page.locator('[data-model="qwen3"]').is_visible(), 'The existing Coder 3B must no longer be hidden'
     assert page.locator('[data-model="qwenvl3"]').is_visible()
     assert page.locator('[data-model="qwen3vl4"]').is_visible()
