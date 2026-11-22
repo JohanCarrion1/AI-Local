@@ -749,8 +749,12 @@ public class MainActivity extends Activity {
             }
             if (opts.outWidth <= 0 || opts.outHeight <= 0)
               throw new IOException("Imagen no compatible");
+            // Decode near the target size first, then scale exactly: the vision encoder
+            // cost grows quickly with resolution, and 448 px is enough for photos,
+            // screenshots and most text on a phone CPU.
             opts.inSampleSize = 1;
-            while (Math.max(opts.outWidth, opts.outHeight) / opts.inSampleSize > 1024)
+            while (Math.max(opts.outWidth, opts.outHeight) / (opts.inSampleSize * 2)
+                >= IMAGE_MAX_SIDE)
               opts.inSampleSize *= 2;
             opts.inJustDecodeBounds = false;
             Bitmap bitmap;
@@ -758,6 +762,19 @@ public class MainActivity extends Activity {
               bitmap = BitmapFactory.decodeStream(in, null, opts);
             }
             if (bitmap == null) throw new IOException("No se pudo leer la imagen");
+            int longSide = Math.max(bitmap.getWidth(), bitmap.getHeight());
+            if (longSide > IMAGE_MAX_SIDE) {
+              float scale = IMAGE_MAX_SIDE / (float) longSide;
+              Bitmap scaled =
+                  Bitmap.createScaledBitmap(
+                      bitmap,
+                      Math.max(1, Math.round(bitmap.getWidth() * scale)),
+                      Math.max(1, Math.round(bitmap.getHeight() * scale)),
+                      true);
+              if (scaled != bitmap) bitmap.recycle();
+              bitmap = scaled;
+            }
+            String thumbnail = thumbnailFor(bitmap);
             imageWidth = bitmap.getWidth();
             imageHeight = bitmap.getHeight();
             int[] pixels = new int[imageWidth * imageHeight];
@@ -770,11 +787,36 @@ public class MainActivity extends Activity {
             }
             image = bytes;
             bitmap.recycle();
-            event("image", true);
+            event("image", thumbnail);
           } catch (Exception e) {
             event("error", e.getMessage());
           }
         });
+  }
+
+  private static final int IMAGE_MAX_SIDE = 448;
+  private static final int THUMBNAIL_SIDE = 256;
+
+  /** Small JPEG data URL so the chat can show the attached image. */
+  private static String thumbnailFor(Bitmap source) {
+    int longSide = Math.max(source.getWidth(), source.getHeight());
+    float scale = Math.min(1f, THUMBNAIL_SIDE / (float) longSide);
+    Bitmap small =
+        scale < 1f
+            ? Bitmap.createScaledBitmap(
+                source,
+                Math.max(1, Math.round(source.getWidth() * scale)),
+                Math.max(1, Math.round(source.getHeight() * scale)),
+                true)
+            : source;
+    try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+      small.compress(Bitmap.CompressFormat.JPEG, 80, out);
+      return "data:image/jpeg;base64," + Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP);
+    } catch (IOException e) {
+      return "";
+    } finally {
+      if (small != source) small.recycle();
+    }
   }
 
   @Override

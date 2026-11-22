@@ -517,10 +517,14 @@ function renderChat() {
     for (const m of messages) {
       if (m.role === "system") continue;
       const b = el("div", "bubble " + m.role);
-      b.append(
-        el("small", "", m.role === "user" ? "Tú" : "Auren"),
-        el("div", "message-text", m.content),
-      );
+      b.append(el("small", "", m.role === "user" ? "Tú" : "Auren"));
+      if (m.role === "user" && m.image) {
+        const photo = el("img", "message-image");
+        photo.src = m.image;
+        photo.alt = "Imagen adjunta";
+        b.append(photo);
+      }
+      b.append(el("div", "message-text", m.content));
       if (m.role === "assistant") {
         const actions = el("div", "message-actions");
         const copy = el("button", "quiet", "Copiar");
@@ -701,7 +705,10 @@ $("send").onclick = () => {
   if (attachment && !m?.vision)
     return toast("Elige un modelo de visión para interpretar imágenes.", true);
   conversationModel = state.active;
-  messages.push({ role: "user", content: text });
+  const userMessage = { role: "user", content: text };
+  if (typeof attachment === "string" && attachment.startsWith("data:image/"))
+    userMessage.image = attachment;
+  messages.push(userMessage);
   persist();
   $("prompt").value = "";
   autoSize();
@@ -1423,10 +1430,23 @@ window.receive = (type, data) => {
       loadingModelId = "";
       setBusy(false);
       break;
-    case "image":
-      attachment = data;
-      $("attachment").classList.toggle("hidden", !data);
+    case "image": {
+      // `data` is a thumbnail data URL while an image is attached, false otherwise.
+      attachment = data === false || data == null ? false : data || true;
+      const chip = $("attachment");
+      chip.classList.toggle("hidden", !attachment);
+      const thumb = $("attachmentThumb");
+      if (thumb) {
+        if (typeof attachment === "string") {
+          thumb.src = attachment;
+          thumb.classList.remove("hidden");
+        } else {
+          thumb.removeAttribute("src");
+          thumb.classList.add("hidden");
+        }
+      }
       break;
+    }
     case "download":
       if (data.status === 16) downloads.delete(data.id);
       else downloads.set(data.id, data);

@@ -72,7 +72,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_ailocal_app_Engine_loadNative(JNIEnv 
     model=llama_model_load_from_file(str(e,path).c_str(),mp);
     if(!model) { fail(e,cancelled?"Carga detenida.":"No se pudo abrir el GGUF. Comprueba el archivo y la RAM disponible."); return; }
     if(cancelled) { Java_com_ailocal_app_Engine_unload(e,c); fail(e,"Carga detenida."); return; }
-    auto cp=llama_context_default_params(); cp.n_ctx=std::max(512,std::min(4096,(int)context)); cp.n_batch=128; cp.n_ubatch=64; cp.type_k=GGML_TYPE_Q8_0; cp.type_v=GGML_TYPE_F16; cp.n_threads=threads; cp.n_threads_batch=threads;
+    auto cp=llama_context_default_params(); cp.n_ctx=std::max(512,std::min(4096,(int)context)); const bool has_projector=!str(e,projector).empty(); cp.n_batch=has_projector?256:128; cp.n_ubatch=has_projector?128:64; cp.type_k=GGML_TYPE_Q8_0; cp.type_v=GGML_TYPE_F16; cp.n_threads=threads; cp.n_threads_batch=threads;
     cp.abort_callback=[](void*){ return cancelled.load(); };
     progress.emit("context",0,0);
     compact_kv=true;
@@ -81,7 +81,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_ailocal_app_Engine_loadNative(JNIEnv 
     if(!ctx) { Java_com_ailocal_app_Engine_unload(e,c); fail(e,"El motor no pudo crear el contexto. Intenta un contexto menor."); return; }
     if(cancelled) { Java_com_ailocal_app_Engine_unload(e,c); fail(e,"Carga detenida."); return; }
     auto p=str(e,projector);
-    if(!p.empty()) { auto vp=mtmd_context_params_default(); vp.use_gpu=false; vp.n_threads=threads; vp.image_max_tokens=512;
+    if(!p.empty()) { auto vp=mtmd_context_params_default(); vp.use_gpu=false; vp.n_threads=threads; vp.image_max_tokens=256;
         progress.emit("vision",0,0);
         vision=mtmd_init_from_file(p.c_str(),model,vp);
         if(!vision) { Java_com_ailocal_app_Engine_unload(e,c); fail(e,"No se pudo cargar el proyector visual."); }

@@ -32,7 +32,7 @@ Para reducir la espera entre turnos, el motor conserva la caché KV del prefijo 
 2. Cada archivo se verifica por tamaño y SHA-256 antes de habilitar Usar modelo. La verificación de varios GB puede tardar.
 3. Pulsa Usar modelo. El motor llama.cpp integrado carga el GGUF y abre el chat.
 4. Escribe y pulsa Enviar. Puedes detener la generación. Las conversaciones permanecen en el teléfono hasta eliminarlas desde el perfil o borrar los datos de la app. Nuevo chat conserva el historial.
-5. Para fotos, carga un modelo de **Visión** (SmolVLM 500M o Qwen2.5-VL 7B si hay recursos), pulsa Imagen y selecciona una imagen con el selector de Android. Qwen Coder admite texto, no imágenes. Se usa una foto por turno, reducida a un máximo de 1024 píxeles; el historial conserva texto, no las imágenes anteriores.
+5. Para fotos, carga un modelo de **Visión** (SmolVLM 500M o Qwen2.5-VL 7B si hay recursos), pulsa Imagen y selecciona una imagen con el selector de Android. Qwen Coder admite texto, no imágenes. Se usa una foto por turno, reducida a un máximo de 448 píxeles (más rápido en CPU) y se muestra como miniatura en el mensaje; el historial conserva texto, no las imágenes anteriores.
 6. Menú → Conectar a GitHub: conecta un token de acceso personal, selecciona un repositorio y rama, abre una carpeta o archivo, edita el texto y revisa antes de guardar un commit. Puedes llevar el archivo al chat para pedir una revisión y copiar una respuesta al editor; revisa el resultado antes del commit. Si el archivo cambió remotamente, recárgalo: no se sobrescriben conflictos silenciosamente. No se ejecutan comandos del modelo ni se publican sus respuestas automáticamente. Pulsa Desconectar para borrar el token.
 
 ## Modelos incluidos (22 modelos; 19 de 5B o más)
