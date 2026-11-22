@@ -302,6 +302,49 @@ with sync_playwright() as p:
     navigate(git,'chat');git.locator('.to-github').last.click()
     assert not git.locator('#confirm').is_visible() and git.locator('#editor').input_value()=='new revision'
 
+    # Photos are prepared before sending, previewed, session-owned and identified at JNI boundary.
+    vision=browser.new_page(viewport={'width':390,'height':844})
+    vision.add_init_script('window.calls=[];window.Native={command:(a,d)=>calls.push([a,JSON.parse(d)])};')
+    vision.goto('http://127.0.0.1:8765')
+    vision_state={**state,'active':'smol','activeContext':2048}
+    vision.evaluate('(s)=>receive("state",s)',vision_state)
+    vision.locator('#attach').click()
+    session=vision.evaluate('current.id')
+    assert vision.evaluate('calls.at(-1)')==['image',dict(sessionId=session)]
+    # Cancellation leaves the composer usable; loading and decode errors cannot send a text-only turn.
+    vision.evaluate('receive("image",null)')
+    assert not vision.locator('#send').is_disabled()
+    vision.evaluate('(s)=>receive("image",{sessionId:s,status:"loading"})',session)
+    assert vision.locator('#send').is_disabled() and 'Preparando' in vision.locator('#attachmentLabel').inner_text()
+    vision.evaluate('(s)=>receive("image",{sessionId:s,status:"error",error:"No se pudo leer la foto"})',session)
+    assert vision.locator('#send').is_disabled() and 'No se pudo leer' in vision.locator('#attachmentLabel').inner_text()
+    vision.locator('#removeImage').click()
+    assert not vision.locator('#send').is_disabled()
+    preview=vision.evaluate("(()=>{let c=document.createElement('canvas');c.width=c.height=8;let x=c.getContext('2d');x.fillStyle='red';x.fillRect(0,0,8,8);return c.toDataURL('image/jpeg');})()")
+    photo=dict(id='photo-red',sessionId=session,status='ready',name='foto.jpg',width=224,height=224,thumbnail=preview)
+    root=dict(active='smol',activeContext=2048,busy=False,instanceId='photo-service',revision=1,selectedImage=photo,job={})
+    vision.evaluate('(s)=>receive("inference",s)',root)
+    vision.wait_for_function('document.getElementById("attachmentPreview").naturalWidth>0')
+    # Recreating WebView recovers the prepared photo from the independent service.
+    vision.reload();vision.evaluate('(s)=>receive("state",s)',{**vision_state,'inference':root})
+    assert vision.evaluate('attachment.id')=='photo-red'
+    vision.locator('#prompt').fill('¿Qué ves?');vision.locator('#send').click()
+    payload=vision.evaluate('calls.at(-1)[1]')
+    assert payload['imageId']=='photo-red' and payload['expectsImage']
+    assert payload['messages'][-1]['imageId']=='photo-red'
+    assert vision.locator('.message-photo img').count()==1
+    deliver(vision,'Un cuadro rojo.')
+    vision.locator('#prompt').fill('¿De qué color era?');vision.locator('#send').click()
+    payload=vision.evaluate('calls.at(-1)[1]')
+    assert payload['imageId']=='photo-red' and payload['messages'][-3]['imageId']=='photo-red'
+    assert 'imageId' not in payload['messages'][-1], 'A follow-up must preserve the actual image turn'
+    deliver(vision,'Rojo.')
+    vision.locator('#newChat').click()
+    vision.evaluate('(s)=>receive("image",s)',photo)
+    assert not vision.evaluate('attachment'), 'A photo from another conversation must not be attached'
+    assert not vision.locator('.message-photo img').count()
+    assert not errors, errors
+
     # Upgrade migration from the 2.2 single-chat store preserves the original messages.
     legacy=browser.new_page(viewport={'width':360,'height':760})
     legacy.add_init_script('''if(!localStorage.getItem('seeded')){localStorage.setItem('chat',JSON.stringify([{role:'user',content:'Chat anterior'},{role:'assistant',content:'Respuesta anterior'}]));localStorage.setItem('chatModel','qwen7');localStorage.setItem('seeded','1');}window.Native={command:()=>{}};''')

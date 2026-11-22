@@ -64,6 +64,19 @@ public class ChatContextTest {
   }
 
   @Test
+  public void photoIdentitySurvivesNativeContextInsertion() throws Exception {
+    JSONObject input = request("¿Qué se ve?").put("imageId", "photo-1");
+    input.getJSONArray("messages").getJSONObject(1).put("imageId", "photo-1");
+    input.put("workspace", new JSONObject().put("repo", "owner/repo").put("text", "code"));
+    JSONObject prepared = ChatContext.prepare(input, true, "johan");
+    JSONArray history = prepared.getJSONArray("messages");
+    assertEquals("photo-1", history.getJSONObject(2).getString("imageId"));
+    assertFalse(history.getJSONObject(1).has("imageId"));
+    assertTrue(history.getJSONObject(0).getString("content").contains("imagen real"));
+    assertEquals("photo-1", prepared.getString("imageId"));
+  }
+
+  @Test
   public void ordinaryCodeAndPlaceholdersRemainUsable() {
     assertEquals(
         "github_pat_… const github_token = value;",

@@ -35,8 +35,8 @@ final class ChatContext {
                 ? "Estado real: hay una cuenta configurada"
                     + (login.isEmpty() ? ". " : " (" + redact(login) + "). ")
                 : "Estado real: no hay token ni cuenta de GitHub conectada; guía al usuario para"
-                      + " conectarla para abrir o guardar repositorios. Puedes analizar código"
-                      + " proporcionado sin conexión. ");
+                    + " conectarla para abrir o guardar repositorios. Puedes analizar código"
+                    + " proporcionado sin conexión. ");
     if (!configured
         && request.optJSONObject("workspace") == null
         && !Pattern.compile("(?i)git\\s*hub|repositorio|\\bcommit\\b")
@@ -46,6 +46,14 @@ final class ChatContext {
           "Eres Auren, el asistente local de esta aplicación. Responde en español con precisión.";
     else
       capabilities += "Menciona la conexión a GitHub solo cuando sea relevante para la solicitud. ";
+    if (!request.optString("imageId").isEmpty())
+      capabilities +=
+          " Este turno incluye una imagen real entregada al motor visual. Analiza lo visible y no"
+              + " inventes detalles que no se distingan. ";
+    if (!request.optString("responseStyle", "direct").equals("detailed"))
+      capabilities +=
+          " Responde de forma breve y directa por defecto; amplía si el usuario lo pide o necesita"
+              + " código completo. Evita introducciones repetidas. ";
     output.put(
         new JSONObject()
             .put("role", "system")
@@ -87,11 +95,13 @@ final class ChatContext {
     for (int i = 0; i < input.length(); i++) {
       JSONObject message = input.getJSONObject(i);
       String role = message.getString("role");
-      if (!role.equals("system"))
-        output.put(
-            new JSONObject()
-                .put("role", role)
-                .put("content", redact(message.getString("content"))));
+      if (!role.equals("system")) {
+        JSONObject clean =
+            new JSONObject().put("role", role).put("content", redact(message.getString("content")));
+        if (role.equals("user") && message.has("imageId"))
+          clean.put("imageId", message.getString("imageId"));
+        output.put(clean);
+      }
     }
     request.put("messages", output);
     return request;

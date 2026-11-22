@@ -60,7 +60,12 @@
               </button>
             </div>
             <div id="attachment" class="attachment hidden">
-              <span>Imagen adjunta</span
+              <img
+                id="attachmentPreview"
+                class="hidden"
+                alt="Vista previa de la imagen adjunta"
+              />
+              <span id="attachmentLabel">Preparando imagen…</span
               ><button id="removeImage" class="quiet">Quitar</button>
             </div>
             <div class="composer">
@@ -355,7 +360,21 @@
           <option value="512" selected>512</option>
           <option value="1024">1024</option>
           <option value="2048">2048</option></select
-        ><label for="contextTokens">Contexto del modelo</label
+        ><label for="responseStyle">Estilo de respuesta</label>
+        <select id="responseStyle">
+          <option value="direct">Directa · sin introducciones largas</option>
+          <option value="detailed">Detallada · más desarrollo</option>
+        </select>
+        <label for="imageTokens">Lectura de imágenes</label>
+        <select id="imageTokens">
+          <option value="256">Ágil · menos tiempo y memoria</option>
+          <option value="512">Detallada · más resolución visual</option>
+        </select>
+        <small
+          >La resolución visual se aplica al volver a cargar el modelo.
+          Detallada puede tardar más.</small
+        >
+        <label for="contextTokens">Contexto del modelo</label
         ><select id="contextTokens">
           <option value="512">512 tokens · memoria mínima</option>
           <option value="1024" selected>1024 tokens · ligero</option>
@@ -413,6 +432,7 @@
           <details>
             <summary>Cómo se calculan los recursos</summary>
             <p id="resourceSource">Midiendo recursos…</p>
+            <p id="engineInfo">Motor pendiente de carga.</p>
             <p>
               Se cruza la memoria disponible de Android con MemAvailable cuando
               es accesible, se deja un margen explícito para Android y se
@@ -445,7 +465,7 @@
       </section>
       <small id="settingsStatus" role="status"
         >Los ajustes se guardan en este teléfono.</small
-      ><small class="version">Auren · 2.5</small>
+      ><small class="version">Auren · 2.6</small>
     </dialog>
     <dialog
       id="modelPicker"

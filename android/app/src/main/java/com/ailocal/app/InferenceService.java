@@ -61,6 +61,7 @@ public class InferenceService extends Service {
   private final LocalBinder binder = new LocalBinder();
   // JNI state is process-wide; old service teardown must precede a new load.
   private static final ExecutorService worker = Executors.newSingleThreadExecutor();
+  private static final ExecutorService photoWorker = Executors.newSingleThreadExecutor();
   private final CopyOnWriteArraySet<Listener> listeners = new CopyOnWriteArraySet<>();
   private final Object lock = new Object();
   private final String instanceId = UUID.randomUUID().toString();
@@ -69,8 +70,13 @@ public class InferenceService extends Service {
   private JSONArray models;
   private JSONObject job = new JSONObject();
   private JSONObject rejection = new JSONObject();
+  private JSONObject selectedImage = new JSONObject();
+  private long photoVersion;
+  private String engineError = "";
+  private JSONObject engineInfo = new JSONObject();
   private volatile String active = "";
   private volatile int activeContext;
+  private volatile int activeImageTokens = 256;
   private volatile boolean busy;
   private volatile boolean foreground;
   private volatile boolean closing;
@@ -83,6 +89,11 @@ public class InferenceService extends Service {
   @Override
   public void onCreate() {
     super.onCreate();
+    try {
+      Engine.configureBackends(getApplicationInfo().nativeLibraryDir);
+    } catch (Throwable e) {
+      engineError = "No se pudieron cargar las bibliotecas del motor: " + e.getMessage();
+    }
     try {
       models = ModelStore.catalog(this);
     } catch (Exception e) {
@@ -97,6 +108,13 @@ public class InferenceService extends Service {
       }
     } catch (Exception ignored) {
       job = new JSONObject();
+    }
+    try {
+      selectedImage =
+          new JSONObject(
+              getSharedPreferences("local", MODE_PRIVATE).getString("selectedImage", "{}"));
+    } catch (JSONException ignored) {
+      selectedImage = new JSONObject();
     }
     NotificationChannel channel =
         new NotificationChannel(
@@ -122,6 +140,12 @@ public class InferenceService extends Service {
       promote();
       Input input;
       while ((input = inputs.poll()) != null) {
+        if (input.action.equals("prepareImage")) {
+          prepareImage(
+              android.net.Uri.parse(input.request.optString("uri")),
+              input.request.optString("sessionId"));
+          continue;
+        }
         try {
           submit(input.action, input.request, input.image, input.width, input.height);
         } catch (RuntimeException e) {
@@ -172,16 +196,79 @@ public class InferenceService extends Service {
             .put("instanceId", instanceId)
             .put("revision", revision)
             .put("activeContext", activeContext)
+            .put("activeImageTokens", activeImageTokens)
             .put("busy", busy || releasing)
             .put("releasing", releasing)
             .put("foreground", foreground)
             .put("wakeHeld", wake != null && wake.isHeld())
             .put("job", new JSONObject(job.toString()))
+            .put("selectedImage", new JSONObject(selectedImage.toString()))
+            .put("engine", new JSONObject(engineInfo.toString()))
             .put("rejection", new JSONObject(rejection.toString()));
       } catch (JSONException e) {
         throw new IllegalStateException(e);
       }
     }
+  }
+
+  void clearImage() {
+    synchronized (lock) {
+      photoVersion++;
+      selectedImage = new JSONObject();
+    }
+    getSharedPreferences("local", MODE_PRIVATE).edit().remove("selectedImage").apply();
+    publish(false);
+  }
+
+  void clearImages() {
+    clearImage();
+    photoWorker.execute(() -> PhotoStore.clear(this));
+  }
+
+  private void prepareImage(android.net.Uri uri, String session) {
+    final long version;
+    synchronized (lock) {
+      version = ++photoVersion;
+      try {
+        selectedImage = new JSONObject().put("status", "loading").put("sessionId", session);
+      } catch (JSONException e) {
+        throw new IllegalStateException(e);
+      }
+    }
+    getSharedPreferences("local", MODE_PRIVATE).edit().remove("selectedImage").apply();
+    publish(false);
+    photoWorker.execute(
+        () -> {
+          JSONObject result;
+          try {
+            result = PhotoStore.importPhoto(this, uri, session);
+          } catch (Exception e) {
+            try {
+              result =
+                  new JSONObject()
+                      .put("status", "error")
+                      .put("sessionId", session)
+                      .put("error", "No se pudo adjuntar la imagen: " + e.getMessage());
+            } catch (JSONException impossible) {
+              return;
+            }
+          } finally {
+            try {
+              getContentResolver()
+                  .releasePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            } catch (Exception ignored) {
+            }
+          }
+          synchronized (lock) {
+            if (closing || version != photoVersion) return;
+            selectedImage = result;
+          }
+          getSharedPreferences("local", MODE_PRIVATE)
+              .edit()
+              .putString("selectedImage", result.toString())
+              .apply();
+          publish(false);
+        });
   }
 
   private void set(String name, Object value) {
@@ -372,6 +459,7 @@ public class InferenceService extends Service {
         () -> {
           try {
             if (closing || cancelRequested) throw new IOException("Ejecución detenida.");
+            if (!engineError.isEmpty()) throw new IOException(engineError);
             holdCpu();
             publish(true);
             if (action.equals("load")) load(request);
@@ -425,14 +513,17 @@ public class InferenceService extends Service {
             model.getBoolean("vision") ? 2048 : 512,
             Math.min(4096, request.optInt("context", 1024)));
     JSONArray files = model.getJSONArray("files");
-    Engine.loadNative(
+    Engine.loadConfigured(
         ModelStore.file(this, files.getJSONObject(0)).getPath(),
         model.getBoolean("vision") ? ModelStore.file(this, files.getJSONObject(1)).getPath() : "",
         Math.max(1, Math.min(4, Runtime.getRuntime().availableProcessors() - 1)),
         context,
+        model.getBoolean("vision") ? request.optInt("imageTokens", 256) : 256,
         this::progress);
     active = model.getString("id");
     activeContext = context;
+    engineInfo = new JSONObject(Engine.stats());
+    activeImageTokens = request.optInt("imageTokens", 256) == 512 ? 512 : 256;
   }
 
   private void delete(JSONObject request) throws Exception {
@@ -452,15 +543,41 @@ public class InferenceService extends Service {
     if (history.length() > 40 || history.length() == 0)
       throw new IOException("Inicia una conversación nueva.");
     String[] roles = new String[history.length()], texts = new String[history.length()];
+    String imageId = request.optString("imageId");
+    int imageIndex = -1;
     for (int i = 0; i < history.length(); i++) {
       roles[i] = history.getJSONObject(i).getString("role");
       texts[i] = history.getJSONObject(i).getString("content");
+      if (!imageId.isEmpty() && imageId.equals(history.getJSONObject(i).optString("imageId")))
+        imageIndex = i;
     }
+    if (request.optString("responseStyle", "direct").equals("direct")
+        && ModelStore.find(models, active)
+            .optString("repo")
+            .toLowerCase(java.util.Locale.ROOT)
+            .contains("qwen3"))
+      for (int i = 0; i < texts.length; i++) if (roles[i].equals("user")) texts[i] += "\n/no_think";
+    if (!imageId.isEmpty()) {
+      if (!ModelStore.find(models, active).getBoolean("vision"))
+        throw new IOException("Selecciona un modelo de visión para enviar esta foto.");
+      if (imageIndex < 0)
+        throw new IOException("No se encontró la foto en este mensaje. Vuelve a adjuntarla.");
+      PhotoStore.Pixels photo = PhotoStore.pixels(this, imageId, request.optString("sessionId"));
+      image = photo.rgb;
+      width = photo.width;
+      height = photo.height;
+      set("image", PhotoStore.metadata(this, imageId, request.optString("sessionId")));
+      synchronized (lock) {
+        if (imageId.equals(selectedImage.optString("id"))) selectedImage = new JSONObject();
+      }
+      getSharedPreferences("local", MODE_PRIVATE).edit().remove("selectedImage").apply();
+    } else if (request.optBoolean("expectsImage"))
+      throw new IOException("La imagen no está lista. Espera la miniatura y vuelve a enviar.");
     ByteArrayOutputStream output = new ByteArrayOutputStream();
     long[] lastEmission = {0}, lastPss = {0};
     double[] peakPss = {android.os.Debug.getPss() / 1024.0};
     try {
-      Engine.generateNative(
+      Engine.generateImage(
           roles,
           texts,
           image,
@@ -480,7 +597,8 @@ public class InferenceService extends Service {
               lastEmission[0] = now;
             }
           },
-          this::progress);
+          this::progress,
+          imageIndex);
     } finally {
       set("answer", new String(output.toByteArray(), StandardCharsets.UTF_8));
     }
@@ -496,7 +614,19 @@ public class InferenceService extends Service {
             .put("compactKv", measured.getBoolean("compactKv"))
             .put("tokens", tokens)
             .put("generationMs", measured.getDouble("generationMs"))
-            .put("tps", tokens * 1000.0 / Math.max(1, measured.getDouble("generationMs")))
+            .put(
+                "tps",
+                tokens
+                    * 1000.0
+                    / Math.max(
+                        1, measured.optDouble("decodeMs", measured.getDouble("generationMs"))))
+            .put("firstTokenMs", measured.optDouble("firstTokenMs"))
+            .put("imageMs", measured.optDouble("imageMs"))
+            .put("promptMs", measured.optDouble("promptMs"))
+            .put("imageProcessed", measured.optBoolean("imageProcessed"))
+            .put("imageReused", measured.optBoolean("imageReused"))
+            .put("threads", measured.optInt("threads"))
+            .put("cpuFeatures", measured.optString("cpuFeatures"))
             .put("peakPssMiB", Math.max(peakPss[0], android.os.Debug.getPss() / 1024.0))
             .put("cachedTokens", measured.optInt("cachedTokens"))
             .put("stopped", measured.optBoolean("cancelled"));
