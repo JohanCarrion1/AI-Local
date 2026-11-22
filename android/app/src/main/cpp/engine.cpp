@@ -161,11 +161,18 @@ extern "C" JNIEXPORT void JNICALL Java_com_ailocal_app_Engine_generateImage(JNIE
         }
         ts[imageIndex]=std::string(mtmd_default_marker())+"\n"+ts[imageIndex];
     }
-    std::vector<llama_chat_message> messages; for(int i=0;i<count;i++) messages.push_back({rs[i].c_str(),ts[i].c_str()});
     const char * tmpl=llama_model_chat_template(model,nullptr);
-    int n=llama_chat_apply_template(tmpl,messages.data(),messages.size(),true,nullptr,0);
-    if(n<0) { fail(e,"Plantilla de chat incompatible con el motor."); return; }
-    std::vector<char> formatted(n+1); llama_chat_apply_template(tmpl,messages.data(),messages.size(),true,formatted.data(),formatted.size());
+    int n=0; std::vector<char> formatted;
+    auto format_chat=[&]()->bool {
+        std::vector<llama_chat_message> messages;
+        for(size_t i=0;i<rs.size();i++) messages.push_back({rs[i].c_str(),ts[i].c_str()});
+        n=llama_chat_apply_template(tmpl,messages.data(),messages.size(),true,nullptr,0);
+        if(n<0) { fail(e,"Plantilla de chat incompatible con el motor."); return false; }
+        formatted.resize(n+1);
+        llama_chat_apply_template(tmpl,messages.data(),messages.size(),true,formatted.data(),formatted.size());
+        return true;
+    };
+    if(!format_chat()) return;
     auto vocab=llama_model_get_vocab(model); llama_pos past=0;
     auto decode_text=[&](const char * data,int size,bool special,int start)->bool {
         int nt=-llama_tokenize(vocab,data,size,nullptr,0,special,true);
@@ -220,21 +227,34 @@ extern "C" JNIEXPORT void JNICALL Java_com_ailocal_app_Engine_generateImage(JNIE
     } else {
         int nt=-llama_tokenize(vocab,formatted.data(),n,nullptr,0,true,true);
         if(nt<=0) { fail(e,"No se pudo preparar el mensaje."); return; }
-        std::vector<llama_token> tokens(nt); llama_tokenize(vocab,formatted.data(),n,tokens.data(),nt,true,true);
         if(nt+8>=context_size) {
             if(!allowHistoryWindow) { fail(e,"El archivo y el historial exceden el contexto. Aumenta el contexto o selecciona un fragmento menor del archivo."); return; }
-            // Keep the system prefix and the newest conversation tail. Never
-            // silently truncate an oversized new user message or workspace.
-            int keep=std::min(256,context_size/4), tail=context_size-keep-128;
-            int latest=0;
-            for(int i=count-1;i>=0;i--) if(rs[i]=="user") {
-                latest=-llama_tokenize(vocab,ts[i].data(),ts[i].size(),nullptr,0,false,true); break;
+            const int original=nt;
+            // Reapply the chat template after dropping old turns. Cutting the
+            // formatted token stream would destroy role boundaries.
+            const size_t first=!rs.empty() && rs[0]=="system" ? 1 : 0;
+            while(nt+64>=context_size && rs.size()>first+1) {
+                if(rs.size()==first+2 && rs[first]=="assistant") {
+                    int size=-llama_tokenize(vocab,ts[first].data(),ts[first].size(),nullptr,0,false,true);
+                    int drop=std::max(32,nt-context_size+96);
+                    if(size>drop+32) {
+                        std::vector<llama_token> previous(size);
+                        llama_tokenize(vocab,ts[first].data(),ts[first].size(),previous.data(),size,false,true);
+                        int bytes=-llama_detokenize(vocab,previous.data()+drop,size-drop,nullptr,0,true,false);
+                        if(bytes<=0) { fail(e,"No se pudo ajustar el historial."); return; }
+                        std::vector<char> tail(bytes);
+                        bytes=llama_detokenize(vocab,previous.data()+drop,size-drop,tail.data(),tail.size(),true,false);
+                        ts[first].assign(tail.data(),std::max(0,bytes));
+                    } else { rs.erase(rs.begin()+first); ts.erase(ts.begin()+first); }
+                } else { rs.erase(rs.begin()+first); ts.erase(ts.begin()+first); }
+                if(!format_chat()) return;
+                nt=-llama_tokenize(vocab,formatted.data(),n,nullptr,0,true,true);
+                if(nt<=0) { fail(e,"No se pudo ajustar el historial."); return; }
             }
-            if(latest>=tail || count<=2) { fail(e,"Contexto completo. Reduce el mensaje o aumenta el contexto en el perfil."); return; }
-            trimmed_tokens=nt-keep-tail;
-            tokens.erase(tokens.begin()+keep,tokens.end()-tail);
-            nt=(int)tokens.size();
+            if(nt+8>=context_size) { fail(e,"Contexto completo. Reduce el mensaje o aumenta el contexto en el perfil."); return; }
+            trimmed_tokens=std::max(0,original-nt);
         }
+        std::vector<llama_token> tokens(nt); llama_tokenize(vocab,formatted.data(),n,tokens.data(),nt,true,true);
         // Reuse only the exact token prefix already present in KV, retaining at
         // least one fresh input token to produce valid logits for sampling.
         int common=0;

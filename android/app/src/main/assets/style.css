@@ -286,6 +286,7 @@ h3 {
   margin: 0 auto 10px;
   text-align: center;
   text-wrap: balance;
+  overflow-wrap: anywhere;
 }
 .welcome p {
   font-size: 12px;

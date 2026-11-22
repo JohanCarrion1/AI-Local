@@ -610,9 +610,20 @@ function renderChat(streamOnly = false) {
           m === messages.at(-1) &&
           ["length", "context"].includes(m.finishReason)
         ) {
-          const more = el("button", "quiet continue-answer", "Continuar");
+          const more = el(
+            "button",
+            "quiet continue-answer",
+            m.finishReason === "context" ? "Ampliar contexto" : "Continuar",
+          );
           more.disabled = running;
-          more.onclick = continueAnswer;
+          more.onclick =
+            m.finishReason === "context"
+              ? () => {
+                  openSettings();
+                  $("contextTokens").focus();
+                  toast("Elige un contexto mayor y vuelve a cargar el modelo.");
+                }
+              : continueAnswer;
           actions.append(more);
           b.append(
             el(
