@@ -17,8 +17,15 @@ final class Engine {
     loadNative(model, projector, threads, context, null);
   }
 
-  static native void loadNative(
-      String model, String projector, int threads, int context, Progress progress);
+  static native void configureBackends(String directory);
+
+  static void loadNative(
+      String model, String projector, int threads, int context, Progress progress) {
+    loadConfigured(model, projector, threads, context, 256, progress);
+  }
+
+  static native void loadConfigured(
+      String model, String projector, int threads, int context, int imageTokens, Progress progress);
 
   static void generate(
       String[] roles,
@@ -31,7 +38,7 @@ final class Engine {
     generateNative(roles, messages, rgb, width, height, maxTokens, sink, null);
   }
 
-  static native void generateNative(
+  static void generateNative(
       String[] roles,
       String[] messages,
       byte[] rgb,
@@ -39,7 +46,29 @@ final class Engine {
       int height,
       int maxTokens,
       Sink sink,
-      Progress progress);
+      Progress progress) {
+    generateImage(
+        roles,
+        messages,
+        rgb,
+        width,
+        height,
+        maxTokens,
+        sink,
+        progress,
+        rgb == null ? -1 : messages.length - 1);
+  }
+
+  static native void generateImage(
+      String[] roles,
+      String[] messages,
+      byte[] rgb,
+      int width,
+      int height,
+      int maxTokens,
+      Sink sink,
+      Progress progress,
+      int imageIndex);
 
   static native String stats();
 

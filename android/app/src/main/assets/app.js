@@ -20,6 +20,8 @@ const defaultPrefs = {
   response: 512,
   instructions: "Eres un asistente útil. Responde en español con precisión.",
   showStats: false,
+  imageTokens: 256,
+  responseStyle: "direct",
 };
 let prefs = { ...defaultPrefs, ...readJSON("preferences.v1", {}) };
 if (!/^#[0-9a-f]{6}$/i.test(prefs.accent)) prefs.accent = defaultPrefs.accent;
@@ -80,6 +82,8 @@ let messages = current.messages,
   conversationModel = current.modelId || "";
 let state = { models: [], installed: [], ram: 0, available: 0 },
   filter = "powerful",
+  imagePreparing = false,
+  imageFailed = false,
   running = false,
   operationKind = null,
   loadingModelId = "",
@@ -262,6 +266,7 @@ function switchSession(id) {
   answer = "";
   chatFailure = current.failure || null;
   command("clearImage");
+  setAttachment(null);
   saveConversations();
   renderHistory();
   page("chat");
@@ -278,6 +283,7 @@ function newConversation() {
   answer = "";
   chatFailure = null;
   command("clearImage");
+  setAttachment(null);
   saveConversations();
   renderHistory();
   page("chat");
@@ -313,6 +319,7 @@ function beginLoad(model) {
   command("load", {
     id: model.id,
     context: contextFor(model),
+    imageTokens: prefs.imageTokens === 512 ? 512 : 256,
     requestId: loadRequestId,
     sessionId: current.id,
   });
@@ -350,7 +357,7 @@ function renderPicker() {
     );
     b.disabled = running;
     b.onclick = () => {
-      if (state.active === m.id && state.activeContext === contextFor(m)) {
+      if (configurationMatches(m)) {
         page("chat");
         return;
       }
@@ -521,6 +528,21 @@ function renderChat() {
         el("small", "", m.role === "user" ? "Tú" : "Auren"),
         el("div", "message-text", m.content),
       );
+      if (m.image) {
+        const photo = el("div", "message-photo");
+        const preview = el("img", "");
+        preview.src = m.image.thumbnail;
+        preview.alt = m.image.name || "Imagen adjunta";
+        photo.append(
+          preview,
+          el(
+            "small",
+            "",
+            m.image.width + " × " + m.image.height + " · imagen enviada",
+          ),
+        );
+        b.prepend(photo);
+      }
       if (m.role === "assistant") {
         const actions = el("div", "message-actions");
         const copy = el("button", "quiet", "Copiar");
@@ -652,7 +674,7 @@ function setBusy(value, kind = null) {
     busyTimer = setInterval(() => {
       if (!answer) renderChat();
     }, 1000);
-  $("send").disabled = value;
+  $("send").disabled = value || imagePreparing || imageFailed;
   $("attach").disabled = value;
   $("newChat").disabled = value;
   $("drawerNewChat").disabled = value;
@@ -672,7 +694,8 @@ function autoSize() {
 $("prompt").oninput = autoSize;
 $("send").onclick = () => {
   const text = $("prompt").value.trim();
-  if (!text || running) return;
+  if ((!text && !attachment) || running || imagePreparing || imageFailed)
+    return;
   const secrets = text.match(githubTokenPattern);
   if (secrets) {
     $("prompt").value = "";
@@ -701,7 +724,11 @@ $("send").onclick = () => {
   if (attachment && !m?.vision)
     return toast("Elige un modelo de visión para interpretar imágenes.", true);
   conversationModel = state.active;
-  messages.push({ role: "user", content: text });
+  messages.push({
+    role: "user",
+    content: text || "Describe lo que ves en esta imagen.",
+    image: attachment || undefined,
+  });
   persist();
   $("prompt").value = "";
   autoSize();
@@ -709,11 +736,21 @@ $("send").onclick = () => {
 };
 function startChat() {
   if (running) return;
+  if (attachment && messages.at(-1)?.role === "user") {
+    messages.at(-1).image = attachment;
+  }
   chatFailure = null;
   current.failure = null;
   current.pending = true;
   current.requestId = makeId();
   current.requestWorkspace = workspaceReference(current.workspace);
+  const activeModel = state.models.find((m) => m.id === state.active);
+  const latestPhoto = activeModel?.vision
+    ? messages
+        .slice()
+        .reverse()
+        .find((m) => m.role === "user" && m.image)?.image
+    : null;
   persist();
   answer = "";
   setBusy(true, "chat");
@@ -722,6 +759,9 @@ function startChat() {
     requestId: current.requestId,
     sessionId: current.id,
     workspace: current.workspace || undefined,
+    imageId: latestPhoto?.id || undefined,
+    expectsImage: !!latestPhoto,
+    responseStyle: prefs.responseStyle === "detailed" ? "detailed" : "direct",
     maxTokens: Number($("responseTokens").value) || 512,
     messages: [
       {
@@ -733,6 +773,7 @@ function startChat() {
         .map((m) => ({
           role: m.role,
           content: redactGitHubSecrets(m.content),
+          imageId: m.image?.id,
         })),
     ],
   });
@@ -749,10 +790,45 @@ $("attach").onclick = () => {
   const m = state.models.find((m) => m.id === state.active);
   if (!m?.vision)
     return toast("Carga un modelo de visión para adjuntar imágenes.", true);
-  command("image");
+  command("image", { sessionId: current.id });
 };
-$("removeImage").onclick = () => command("clearImage");
+$("removeImage").onclick = () => {
+  setAttachment(null);
+  command("clearImage");
+};
+function setAttachment(photo) {
+  if (photo && photo.sessionId && photo.sessionId !== current.id) photo = null;
+  imagePreparing = photo?.status === "loading";
+  imageFailed = photo?.status === "error";
+  attachment = photo?.status === "ready" ? photo : false;
+  $("attachment").classList.toggle("hidden", !photo);
+  $("attachmentPreview").classList.toggle("hidden", !attachment);
+  if (attachment) $("attachmentPreview").src = attachment.thumbnail;
+  else $("attachmentPreview").removeAttribute("src");
+  $("attachmentLabel").textContent =
+    photo?.status === "error"
+      ? photo.error
+      : imagePreparing
+        ? "Preparando imagen…"
+        : attachment
+          ? attachment.name +
+            " · " +
+            attachment.width +
+            " × " +
+            attachment.height
+          : "";
+  $("send").disabled = running || imagePreparing || imageFailed;
+}
 
+function configurationMatches(model) {
+  return (
+    state.active === model.id &&
+    state.activeContext === contextFor(model) &&
+    (!model.vision ||
+      (state.activeImageTokens || 256) ===
+        (prefs.imageTokens === 512 ? 512 : 256))
+  );
+}
 function contextFor(model) {
   return Math.max(
     model.vision ? 2048 : 512,
@@ -965,14 +1041,14 @@ function renderModels() {
         "button",
         available ? "secondary" : "primary",
         available
-          ? state.active === m.id && state.activeContext === contextFor(m)
+          ? configurationMatches(m)
             ? "En uso ✓"
             : "Cargar modelo"
           : "Descargar ↓",
       );
     btn.onclick = () => {
       if (available) {
-        if (state.active === m.id && state.activeContext === contextFor(m)) {
+        if (configurationMatches(m)) {
           page("chat");
           return;
         }
@@ -1124,6 +1200,12 @@ function applyInference(data) {
   state.active = data.active || "";
   state.activeContext = data.activeContext || 0;
   state.inference = data;
+  state.activeImageTokens = data.activeImageTokens || 256;
+  $("engineInfo").textContent = data.engine?.cpuFeatures
+    ? "CPU · " + data.engine.threads + " hilos · " + data.engine.cpuFeatures
+    : "Motor pendiente de carga.";
+  if (Object.hasOwn(data, "selectedImage"))
+    setAttachment(data.selectedImage?.status ? data.selectedImage : null);
   $("unloadModel").disabled = !state.active || data.busy;
   $("backgroundStatus").textContent = state.active
     ? "El modelo se mantiene en segundo plano. Usa la notificación para volver o detener la respuesta."
@@ -1354,7 +1436,18 @@ window.receive = (type, data) => {
       if (prefs.showStats) {
         $("chatHint").classList.remove("hidden");
         $("chatHint").textContent =
-          data.context + " contexto · " + data.tps.toFixed(1) + " tokens/s";
+          data.context +
+          " contexto · " +
+          data.tps.toFixed(1) +
+          " tokens/s" +
+          (data.firstTokenMs
+            ? " · primer texto " + (data.firstTokenMs / 1000).toFixed(1) + " s"
+            : "") +
+          (data.imageProcessed
+            ? data.imageReused
+              ? " · imagen reutilizada"
+              : " · imagen procesada"
+            : "");
       }
       break;
     case "loaded":
@@ -1404,8 +1497,7 @@ window.receive = (type, data) => {
         persist();
         answer = "";
         if (data !== false) {
-          attachment = false;
-          $("attachment").classList.add("hidden");
+          setAttachment(null);
         }
       } else if (data === false && !chatFailure) {
         chatFailure = {
@@ -1424,8 +1516,7 @@ window.receive = (type, data) => {
       setBusy(false);
       break;
     case "image":
-      attachment = data;
-      $("attachment").classList.toggle("hidden", !data);
+      setAttachment(data && typeof data === "object" ? data : null);
       break;
     case "download":
       if (data.status === 16) downloads.delete(data.id);
@@ -1633,6 +1724,9 @@ function openSettings() {
   $("autoLoad").checked = !!prefs.autoLoad;
   $("showStats").checked = !!prefs.showStats;
   $("instructions").value = prefs.instructions;
+  $("responseStyle").value =
+    prefs.responseStyle === "detailed" ? "detailed" : "direct";
+  $("imageTokens").value = String(prefs.imageTokens === 512 ? 512 : 256);
   renderDefaultOptions();
   $("defaultModel").value = prefs.defaultModel;
   $("settings").showModal();
@@ -1680,6 +1774,14 @@ $("responseTokens").onchange = () => {
   prefs.response = Number($("responseTokens").value);
   savePrefs();
 };
+$("responseStyle").onchange = () => {
+  prefs.responseStyle = $("responseStyle").value;
+  savePrefs();
+};
+$("imageTokens").onchange = () => {
+  prefs.imageTokens = Number($("imageTokens").value);
+  savePrefs();
+};
 $("instructions").oninput = () => {
   prefs.instructions = $("instructions").value.slice(0, 4000);
   savePrefs();
@@ -1719,6 +1821,7 @@ $("clearHistory").onclick = () => {
     () => {
       current = blankSession();
       store.sessions = [current];
+      command("clearImages");
       messages = current.messages;
       conversationModel = "";
       answer = "";

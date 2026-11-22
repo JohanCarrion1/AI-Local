@@ -28,10 +28,8 @@ public class MainActivity extends Activity {
   private DownloadManager dm;
   private volatile String active = "", token = "";
   private volatile int activeContext = 0;
-  private volatile byte[] image;
-  private int imageWidth, imageHeight;
+  private String pickerSessionId = "";
   private volatile boolean busy = false;
-  private String clearedImageJob = "";
   private volatile InferenceService inferenceService;
   private boolean bound, visible;
   private final InferenceService.Listener inferenceListener =
@@ -39,15 +37,6 @@ public class MainActivity extends Activity {
         active = state.optString("active");
         activeContext = state.optInt("activeContext");
         busy = state.optBoolean("busy");
-        JSONObject job = state.optJSONObject("job");
-        if (job != null
-            && "chat".equals(job.optString("action"))
-            && !"running".equals(job.optString("status"))
-            && !clearedImageJob.equals(job.optString("id"))) {
-          clearedImageJob = job.optString("id");
-          image = null;
-          event("image", false);
-        }
         event("inference", state);
       };
   private final ServiceConnection serviceConnection =
@@ -95,6 +84,7 @@ public class MainActivity extends Activity {
   @Override
   public void onCreate(Bundle state) {
     super.onCreate(state);
+    if (state != null) pickerSessionId = state.getString("pickerSessionId", "");
     prefs = getSharedPreferences("local", MODE_PRIVATE);
     dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
     recoverInterruptedLoad();
@@ -539,11 +529,27 @@ public class MainActivity extends Activity {
                 event("error", "Espera a que termine la respuesta.");
                 return;
               }
+              try {
+                pickerSessionId = new JSONObject(payload).optString("sessionId");
+              } catch (JSONException e) {
+                event("error", "No se pudo identificar el chat.");
+                return;
+              }
               Intent intent =
                   new Intent(Intent.ACTION_OPEN_DOCUMENT)
                       .setType("image/*")
                       .addCategory(Intent.CATEGORY_OPENABLE);
               startActivityForResult(intent, 11);
+            });
+        return;
+      }
+      if (action.equals("clearImage") || action.equals("clearImages")) {
+        runOnUiThread(
+            () -> {
+              if (inferenceService != null) {
+                inferenceService.clearImage();
+                if (action.equals("clearImages")) inferenceService.clearImages();
+              }
             });
         return;
       }
@@ -558,17 +564,12 @@ public class MainActivity extends Activity {
         runOnUiThread(
             () -> {
               try {
-                if (action.equals("load")) {
-                  image = null;
-                  event("image", false);
-                }
                 JSONObject request = new JSONObject(payload);
                 if (action.equals("chat"))
                   request =
                       ChatContext.prepare(
                           request, !token.isEmpty(), prefs.getString("githubLogin", ""));
-                InferenceService.enqueue(
-                    MainActivity.this, action, request, image, imageWidth, imageHeight);
+                InferenceService.enqueue(MainActivity.this, action, request, null, 0, 0);
                 if (Build.VERSION.SDK_INT >= 33
                     && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
                         != android.content.pm.PackageManager.PERMISSION_GRANTED
@@ -624,10 +625,6 @@ public class MainActivity extends Activity {
                   break;
                 case "cancel":
                   cancelDownload(p.getString("id"));
-                  break;
-                case "clearImage":
-                  image = null;
-                  event("image", false);
                   break;
                 case "connect":
                   {
@@ -737,44 +734,45 @@ public class MainActivity extends Activity {
   @Override
   protected void onActivityResult(int request, int result, Intent data) {
     super.onActivityResult(request, result, data);
-    if (request != 11 || result != RESULT_OK || data == null) return;
+    if (request != 11) return;
+    if (result != RESULT_OK || data == null) {
+      if (inferenceService != null)
+        event("image", inferenceService.snapshot().optJSONObject("selectedImage"));
+      return;
+    }
     Uri uri = data.getData();
-    io.execute(
-        () -> {
-          try {
-            BitmapFactory.Options opts = new BitmapFactory.Options();
-            opts.inJustDecodeBounds = true;
-            try (InputStream in = getContentResolver().openInputStream(uri)) {
-              BitmapFactory.decodeStream(in, null, opts);
-            }
-            if (opts.outWidth <= 0 || opts.outHeight <= 0)
-              throw new IOException("Imagen no compatible");
-            opts.inSampleSize = 1;
-            while (Math.max(opts.outWidth, opts.outHeight) / opts.inSampleSize > 1024)
-              opts.inSampleSize *= 2;
-            opts.inJustDecodeBounds = false;
-            Bitmap bitmap;
-            try (InputStream in = getContentResolver().openInputStream(uri)) {
-              bitmap = BitmapFactory.decodeStream(in, null, opts);
-            }
-            if (bitmap == null) throw new IOException("No se pudo leer la imagen");
-            imageWidth = bitmap.getWidth();
-            imageHeight = bitmap.getHeight();
-            int[] pixels = new int[imageWidth * imageHeight];
-            bitmap.getPixels(pixels, 0, imageWidth, 0, 0, imageWidth, imageHeight);
-            byte[] bytes = new byte[pixels.length * 3];
-            for (int i = 0; i < pixels.length; i++) {
-              bytes[3 * i] = (byte) (pixels[i] >> 16);
-              bytes[3 * i + 1] = (byte) (pixels[i] >> 8);
-              bytes[3 * i + 2] = (byte) pixels[i];
-            }
-            image = bytes;
-            bitmap.recycle();
-            event("image", true);
-          } catch (Exception e) {
-            event("error", e.getMessage());
-          }
-        });
+    if (uri == null) {
+      event("error", "No se recibió la imagen seleccionada.");
+      return;
+    }
+    try {
+      event("image", new JSONObject().put("status", "loading").put("sessionId", pickerSessionId));
+      try {
+        getContentResolver()
+            .takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+      } catch (SecurityException ignored) {
+      }
+      JSONObject requestData =
+          new JSONObject().put("uri", uri.toString()).put("sessionId", pickerSessionId);
+      InferenceService.enqueue(this, "prepareImage", requestData, null, 0, 0);
+    } catch (Exception e) {
+      try {
+        event(
+            "image",
+            new JSONObject()
+                .put("status", "error")
+                .put("sessionId", pickerSessionId)
+                .put("error", "No se pudo adjuntar la imagen: " + e.getMessage()));
+      } catch (Exception ignored) {
+      }
+      event("error", "No se pudo adjuntar la imagen: " + e.getMessage());
+    }
+  }
+
+  @Override
+  protected void onSaveInstanceState(Bundle out) {
+    out.putString("pickerSessionId", pickerSessionId);
+    super.onSaveInstanceState(out);
   }
 
   @Override

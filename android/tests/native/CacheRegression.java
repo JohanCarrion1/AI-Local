@@ -26,6 +26,7 @@ public class CacheRegression {
   }
 
   public static void main(String[] args) {
+    if (args.length > 1) Engine.configureBackends(args[1]);
     Engine.load(args[0], "", 2, 1024);
     String prompt = "dato ".repeat(160) + "\nResponde solo con el número: 2+2=";
     String cold = ask(prompt);

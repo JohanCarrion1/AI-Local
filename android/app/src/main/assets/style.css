@@ -330,6 +330,31 @@ h3 {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+.message-photo {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 9px;
+}
+.message-photo img {
+  max-width: 150px;
+  max-height: 170px;
+  object-fit: contain;
+  border-radius: 12px;
+}
+.message-photo small {
+  color: var(--muted);
+  font-size: 10px;
+}
+#attachmentPreview {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+#attachmentLabel {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
 .message-actions {
   display: flex;
   gap: 3px;

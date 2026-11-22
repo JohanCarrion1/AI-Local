@@ -1,4 +1,4 @@
-# Auren · Android 2.5
+# Auren · Android 2.6
 
 Auren es el nuevo nombre de AI Local. Mantiene `com.ailocal.app`, la firma de actualización, los modelos descargados, el historial y los ajustes. Su nuevo icono es un halcón geométrico en cobre y marfil sobre fondo oscuro, con recursos adaptativos y una variante monocroma para iconos temáticos y notificaciones.
 
@@ -12,7 +12,7 @@ En **Actions → Android APK Build**, abre una ejecución de tu rama y descarga 
 
 La app abre directamente el chat. El menú hamburguesa contiene **Chat predeterminado**, **Conectar a GitHub** y **Descargar modelos**, con historial y búsqueda de conversaciones debajo. Nuevo chat conserva las conversaciones anteriores; cada una puede reabrirse desde el historial. La conversación única de 2.2 se migra automáticamente al historial local.
 
-El perfil al pie del menú despliega los ajustes: nombre local, tema oscuro/claro/sistema, naranja predeterminado y otros acentos (azul, violeta, rosa, neutro y color personalizado), modelo preferido, carga automática opcional, contexto, máximo de respuesta e instrucciones del asistente. La opción de estadísticas y los recursos del dispositivo están en esos ajustes. Los colores y preferencias se guardan en el teléfono, y las barras del sistema siguen el tema claro u oscuro. Se conserva la marca AI Local; no se conecta con Claude ni utiliza su servicio.
+El perfil al pie del menú despliega los ajustes: nombre local, tema oscuro/claro/sistema, naranja predeterminado y otros acentos (azul, violeta, rosa, neutro y color personalizado), modelo preferido, carga automática opcional, contexto, máximo de respuesta e instrucciones del asistente. La opción de estadísticas y los recursos del dispositivo están en esos ajustes. Los colores y preferencias se guardan en el teléfono, y las barras del sistema siguen el tema claro u oscuro. Se conserva el paquete de actualización; no se conecta con Claude ni utiliza su servicio.
 
 El historial se guarda en el almacenamiento local del WebView. No se sincroniza con cuentas externas y se elimina si se borran los datos de la app. Eliminar una conversación o todo el historial requiere confirmación; los modelos descargados y el token de GitHub se conservan. Solo hay una generación activa; cambiar de conversación o borrarla se bloquea mientras responde para evitar mezclar mensajes.
 
@@ -24,7 +24,11 @@ El modelo y la generación pertenecen a `InferenceService`, independiente de la 
 
 Cambiar de app, volver o recrear la pantalla reconecta al mismo trabajo. El servicio guarda periódicamente la respuesta en un archivo atómico privado y sincroniza el resultado por identificador de conversación y petición, sin duplicarlo. Un bloqueo parcial de CPU mantiene el cálculo con la pantalla apagada solo mientras hay una carga o respuesta activa, con liberación al terminar, fallar o detenerse. El modelo queda disponible sin mantener despierta la CPU cuando está inactivo. No se reinicia una carga de varios GB sin intervención del usuario después de un cierre de proceso. Android todavía puede finalizar la app por memoria insuficiente o por un cierre forzado; en ese caso se recupera el texto guardado y se ofrece reintentar.
 
-Para reducir la espera entre turnos, el motor conserva la caché KV del prefijo exacto de tokens y procesa solo la parte nueva. Si cambian el historial, las instrucciones o el modelo se invalida la parte incompatible; en arquitecturas sin recorte parcial se vuelve al procesamiento completo. Visión conserva su ruta de procesamiento sin reutilizar embeddings de otra imagen. La transmisión a pantalla se agrupa a un máximo de 20 actualizaciones por segundo, no se redibuja el WebView mientras está oculto y PSS se muestrea cada dos segundos. Se conservan los modelos, cuantización, contexto y límite de respuesta elegidos; la mejora no se basa en recortar respuestas ni calidad.
+Para reducir la espera entre turnos, el motor conserva la caché KV del prefijo exacto de tokens y procesa solo la parte nueva. Si cambian el historial, las instrucciones o el modelo se invalida la parte incompatible; en arquitecturas sin recorte parcial se vuelve al procesamiento completo. La caché visual se reutiliza solo si coinciden los píxeles, el tamaño y el prefijo de conversación; cambiar de foto obliga a codificarla de nuevo. La transmisión a pantalla se agrupa a un máximo de 20 actualizaciones por segundo, no se redibuja el WebView mientras está oculto y PSS se muestrea cada dos segundos. Se conservan los pesos completos y la cuantización elegida. El perfil permite respuestas directas o detalladas y visión ágil (256 tokens visuales) o detallada (512); más detalle visual consume más tiempo y memoria. Qwen3 recibe /no_think en modo directo para evitar razonamiento interno prolongado, y permite pensar en modo detallado.
+
+El APK 2.6 incluye las variantes CPU oficiales de llama.cpp para ARM64: NEON básico, dot-product, FP16 e i8mm, además de variantes ARMv9. El motor selecciona por capacidades reales del procesador; no ejecuta instrucciones incompatibles ni requiere instalar dependencias en Termux. El pool deja de hacer espera activa y limita los hilos por afinidad/cuota CPU cuando el sistema la publica. El perfil muestra las capacidades del backend utilizado.
+
+La lectura de imágenes utiliza selección determinista de tokens para evitar variaciones aleatorias en colores y texto. El proyector visual de Qwen2.5-VL (aprox. 0.85 GB) se abre únicamente al procesar una foto y se libera antes de generar texto. Los chats de texto con modelos visuales no mantienen ese proyector en RAM. Esto reduce presión de memoria y lecturas repetidas de pesos; la velocidad final sigue dependiendo del SoC, memoria disponible y temperatura.
 
 ## Uso
 
@@ -32,7 +36,7 @@ Para reducir la espera entre turnos, el motor conserva la caché KV del prefijo 
 2. Cada archivo se verifica por tamaño y SHA-256 antes de habilitar Usar modelo. La verificación de varios GB puede tardar.
 3. Pulsa Usar modelo. El motor llama.cpp integrado carga el GGUF y abre el chat.
 4. Escribe y pulsa Enviar. Puedes detener la generación. Las conversaciones permanecen en el teléfono hasta eliminarlas desde el perfil o borrar los datos de la app. Nuevo chat conserva el historial.
-5. Para fotos, carga un modelo de **Visión** (SmolVLM 500M o Qwen2.5-VL 7B si hay recursos), pulsa Imagen y selecciona una imagen con el selector de Android. Qwen Coder admite texto, no imágenes. Se usa una foto por turno, reducida a un máximo de 1024 píxeles; el historial conserva texto, no las imágenes anteriores.
+5. Para fotos, carga un modelo de **Visión** (SmolVLM 500M o Qwen2.5-VL 7B si hay recursos), pulsa Imagen y selecciona una imagen con el selector de Android. Qwen Coder admite texto, no imágenes. Espera la miniatura con nombre y dimensiones antes de enviar. La foto se corrige por orientación EXIF y se reduce a un máximo de 1024 píxeles. Las copias privadas sobreviven al cambio de pantalla y permiten preguntar de nuevo por la última foto del chat; se conservan hasta 24 fotos y después se eliminan las más antiguas. Si falta el archivo se solicita adjuntarlo de nuevo, sin enviar silenciosamente un turno sin imagen. Borrar todo el historial elimina esas copias.
 6. Menú → Conectar a GitHub: conecta un token de acceso personal, selecciona un repositorio y rama, abre una carpeta o archivo, edita el texto y revisa antes de guardar un commit. Puedes llevar el archivo al chat para pedir una revisión y copiar una respuesta al editor; revisa el resultado antes del commit. Si el archivo cambió remotamente, recárgalo: no se sobrescriben conflictos silenciosamente. No se ejecutan comandos del modelo ni se publican sus respuestas automáticamente. Pulsa Desconectar para borrar el token.
 
 ## Modelos incluidos (22 modelos; 19 de 5B o más)
@@ -79,7 +83,7 @@ Con 5 GiB disponibles y un umbral bajo típico, el margen orientativo es aproxim
 
 **Cargar modelo** abre directamente el chat con los pesos completos. No hay una prueba previa obligatoria, ni un modo demo, ni una generación sintética de 16 tokens. La estimación no bloquea un 7B/8B; si el motor no consigue asignar memoria se muestra su error real. Los archivos cuyo tamaño estimado supera toda la RAM física visible conservan una advertencia con la posibilidad de intentar la carga manualmente.
 
-Las estadísticas se miden durante tus respuestas reales: tokens, tiempo incluyendo preparación y PSS máximo muestreado. Se puede elegir un máximo de respuesta de 256 a 2048 tokens, sujeto al espacio restante del contexto. Esto es una configuración de inferencia, no una restricción de prueba del modelo. Una respuesta corta que funcione no garantiza más memoria para todos los contextos o imágenes. Si una carga se interrumpe se informa al reabrir; solo se atribuye a memoria baja cuando Android lo confirma mediante ApplicationExitInfo.
+Las estadísticas se miden durante tus respuestas reales: tokens, tiempo hasta el primer token, velocidad de generación separada de la preparación visual y PSS máximo muestreado. Se puede elegir un máximo de respuesta de 256 a 2048 tokens, sujeto al espacio restante del contexto. Esto es una configuración de inferencia, no una restricción de prueba del modelo. Una respuesta corta que funcione no garantiza más memoria para todos los contextos o imágenes. Si una carga se interrumpe se informa al reabrir; solo se atribuye a memoria baja cuando Android lo confirma mediante ApplicationExitInfo.
 
 La interfaz sigue dentro del contenedor nativo que reserva barras del sistema, recortes y teclado. Las pruebas Android 15 verifican retrato, paisaje e insets del teclado.
 
@@ -107,7 +111,7 @@ CMake obtiene llama.cpp del commit fijo `9581154a2250cc9e6948e4c2a2fc4b4e19d1a57
 
 Los kernels nativos se compilan con optimización `-O3` también en el APK debug. La preparación de texto y visión respeta `llama_n_batch(ctx)`; no se envían bloques de 256 tokens a un contexto configurado con batch 128. Detener también interrumpe el procesamiento CPU del contexto, además del bucle de generación.
 
-Actions compila el motor real, ejecuta lint, exige un APK, verifica la firma y comprueba la biblioteca JNI dentro del paquete. Un workflow en verde demuestra compilación, **no** una prueba física de rendimiento o inferencia en cada teléfono.
+Actions compila el motor real, ejecuta lint, exige un APK, verifica la firma y comprueba JNI, bibliotecas compartidas y plugins ARM64 dentro del paquete. Un workflow en verde demuestra compilación, **no** una prueba física de rendimiento o inferencia en cada teléfono.
 
 ## Pruebas
 
@@ -126,3 +130,5 @@ La prueba Android también vuelve a Inicio durante la generación, espera su fin
 - Probar 3B/7B solo con memoria suficiente y observar consumo/temperatura.
 
 La identidad gráfica se documenta en `android/branding/README.md`. Los archivos Python y su CI heredado siguen siendo independientes del APK.
+
+La regresión visual de 2.6 usa el selector Android real con respuestas interceptadas de MediaStore: miniatura, recreación de Activity, envío al servicio y JNI, dos imágenes con píxeles distintos y reutilización de la misma foto en una pregunta posterior. Un job ARM64 adicional descarga **Qwen2.5-VL 7B completo** del catálogo y exige respuestas diferentes a imágenes roja/azul, sin nombres de colores en el prompt, además de comprobar la caché visual. Las fixtures pequeñas del emulador son exclusivamente pruebas de integración y no sustituyen los modelos elegidos por el usuario. Los tiempos del runner no constituyen una medición del Samsung SM-A366E.
