@@ -71,6 +71,9 @@ La lectura de imágenes utiliza selección determinista de tokens para evitar va
 | Qwen Coder · 7B | Q4_K_M | 4.68 GB | Texto |
 | Qwen Coder · 7B · compacto Q3 | Q3_K_M | 3.81 GB | Texto |
 | Qwen Coder · 7B Abliterated | Q4_K_M | 4.68 GB | Texto |
+| Qwen3 · 4B Abliterated (sin filtros) | Q4_K_M | 2.50 GB | Texto |
+| Dolphin 3.0 · Qwen2.5 3B (sin censura) | Q4_K_M | 1.93 GB | Texto |
+| Llama 3.2 · 3B Uncensored | Q4_K_M | 2.24 GB | Texto |
 | Qwen Coder · 0.5B | Q4_K_M | 0.49 GB | Texto |
 | Qwen Coder · 3B | Q4_K_M | 2.10 GB | Texto |
 | SmolVLM · 500M | Q8_0 | 0.55 GB | Texto + imagen |
