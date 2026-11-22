@@ -246,7 +246,12 @@ extern "C" JNIEXPORT void JNICALL Java_com_ailocal_app_Engine_generateImage(JNIE
     output_limit=std::min(output_limit,context_size-(int)past-1);
     progress.emit("generate",0,output_limit);
     auto sampler=llama_sampler_chain_init(llama_sampler_chain_default_params());
-    llama_sampler_chain_add(sampler,llama_sampler_init_top_k(40)); llama_sampler_chain_add(sampler,llama_sampler_init_top_p(0.9f,1)); llama_sampler_chain_add(sampler,llama_sampler_init_temp(0.7f)); llama_sampler_chain_add(sampler,llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
+    // Image reading/OCR should use the highest-probability interpretation,
+    // rather than randomly choosing another color or word at temperature 0.7.
+    if(rgb) llama_sampler_chain_add(sampler,llama_sampler_init_greedy());
+    else {
+        llama_sampler_chain_add(sampler,llama_sampler_init_top_k(40)); llama_sampler_chain_add(sampler,llama_sampler_init_top_p(0.9f,1)); llama_sampler_chain_add(sampler,llama_sampler_init_temp(0.7f)); llama_sampler_chain_add(sampler,llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
+    }
     auto cls=e->GetObjectClass(sink); auto method=e->GetMethodID(cls,"onToken","([B)V");
     bool emitted=false;
     auto decode_started=std::chrono::steady_clock::now();

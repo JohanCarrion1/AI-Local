@@ -52,6 +52,12 @@ public class VisionRegression {
     if (!Engine.stats().contains("\"imageReused\":false"))
       throw new AssertionError("A different image reused old pixels");
     System.out.println("BLUE_OK " + blue + "\n" + Engine.stats());
+    String redAgain =
+        ask(new String[] {"system", "user"}, new String[] {SYSTEM, QUESTION}, pixels(0), 1);
+    color(redAgain, "red");
+    if (Engine.stats().contains("\"imageReused\":true"))
+      throw new AssertionError("Returning to red must invalidate blue");
+    System.out.println("RED_AGAIN_OK " + redAgain + "\n" + Engine.stats());
     Engine.unload();
   }
 }

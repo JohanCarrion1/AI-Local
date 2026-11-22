@@ -28,7 +28,7 @@ Para reducir la espera entre turnos, el motor conserva la caché KV del prefijo 
 
 El APK 2.6 incluye las variantes CPU oficiales de llama.cpp para ARM64: NEON básico, dot-product, FP16 e i8mm, además de variantes ARMv9. El motor selecciona por capacidades reales del procesador; no ejecuta instrucciones incompatibles ni requiere instalar dependencias en Termux. El pool deja de hacer espera activa y limita los hilos por afinidad/cuota CPU cuando el sistema la publica. El perfil muestra las capacidades del backend utilizado.
 
-El proyector visual de Qwen2.5-VL (aprox. 0.85 GB) se abre únicamente al procesar una foto y se libera antes de generar texto. Los chats de texto con modelos visuales no mantienen ese proyector en RAM. Esto reduce presión de memoria y lecturas repetidas de pesos; la velocidad final sigue dependiendo del SoC, memoria disponible y temperatura.
+La lectura de imágenes utiliza selección determinista de tokens para evitar variaciones aleatorias en colores y texto. El proyector visual de Qwen2.5-VL (aprox. 0.85 GB) se abre únicamente al procesar una foto y se libera antes de generar texto. Los chats de texto con modelos visuales no mantienen ese proyector en RAM. Esto reduce presión de memoria y lecturas repetidas de pesos; la velocidad final sigue dependiendo del SoC, memoria disponible y temperatura.
 
 ## Uso
 
