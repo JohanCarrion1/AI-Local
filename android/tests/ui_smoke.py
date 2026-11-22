@@ -60,6 +60,18 @@ with sync_playwright() as p:
     page.locator('#customAccent').evaluate("e=>{e.value='#0a2244';e.dispatchEvent(new Event('input',{bubbles:true}));}")
     assert page.evaluate('prefs.accent') == '#0a2244'
     assert page.evaluate("contrast(rgb(prefs.accent),[0,0,0]) < contrast(rgb(prefs.accent),[255,255,255])")
+    # The full palette works by touch/mouse and keyboard, without a native color dialog.
+    page.locator('#colorHue').fill('210')
+    page.locator('#colorSaturation').fill('100')
+    page.locator('#colorValue').fill('100')
+    assert page.evaluate('prefs.accent') == '#0080ff', page.evaluate('JSON.stringify({palette,accent:prefs.accent})')
+    plane = page.locator('#colorPlane').bounding_box()
+    page.mouse.click(plane['x']+plane['width']/2, plane['y']+plane['height']/2)
+    assert page.evaluate('Math.abs(palette.s-.5)<.02 && Math.abs(palette.v-.5)<.02')
+    page.locator('#customAccent').fill('#123abc')
+    assert page.evaluate('prefs.accent') == '#123abc'
+    page.locator('#customAccent').fill('invalid')
+    assert page.evaluate('prefs.accent') == '#123abc'
     page.get_by_role('button', name='Naranja', exact=True).click()
     page.select_option('#themeMode','dark')
     page.select_option('#defaultModel','qwen7')
@@ -75,6 +87,12 @@ with sync_playwright() as p:
     assert page.locator('#responseTokens').input_value() == '1024'
     assert page.locator('#chat').is_visible()
     assert not page.evaluate('calls.some(c=>c[0]==="load")')
+    greeting = page.locator('.welcome h1')
+    assert float(greeting.evaluate('e=>getComputedStyle(e).fontSize').replace('px','')) <= 26
+    assert greeting.evaluate('e=>getComputedStyle(e).textAlign') == 'center'
+    box = greeting.bounding_box()
+    assert abs(box['x']+box['width']/2-195) < 2
+    page.screenshot(path='/tmp/auren-chat-preview.png')
 
     # Native chat payload, user text escaping, history and separate conversations.
     first = 'Mi primera conversación <img src=x onerror=alert(1)>'
@@ -270,6 +288,27 @@ with sync_playwright() as p:
     bg.locator('.retry-operation').click()
     assert bg.evaluate('calls.at(-1)[0]')=='load'
     assert bg.evaluate('messages.at(-1).role')=='user', 'Retry replaces the partial attempt, without duplicating the user'
+
+    # Limited answers are distinguished from Android interruption and can be continued.
+    limited=browser.new_page(viewport={'width':390,'height':844})
+    limited.add_init_script('window.calls=[];window.Native={command:(a,d)=>calls.push([a,JSON.parse(d)])};')
+    limited.goto('http://127.0.0.1:8765');limited.evaluate('(s)=>receive("state",s)',state)
+    limited.locator('#prompt').fill('Escribe un programa completo');limited.locator('#send').click()
+    limited.evaluate('receive("metrics",{finishReason:"length",context:1024,tps:1,stopped:false})')
+    deliver(limited, '**Código**\n```python\nprint("<script>alert(1)</script>")\n```\nFin.')
+    assert limited.locator('.message-code code').inner_text() == 'print("<script>alert(1)</script>")'
+    assert limited.locator('.message-text script').count()==0
+    assert limited.locator('.message-text strong').inner_text()=='Código'
+    assert limited.locator('.continue-answer').is_visible()
+    limited.reload();limited.evaluate('(s)=>receive("state",s)',state)
+    assert limited.locator('.continue-answer').is_visible(), 'Finish reason survives reload'
+    limited.locator('.continue-answer').click()
+    assert limited.evaluate('running && calls.at(-1)[0] === "chat"')
+    assert 'Continúa' in limited.evaluate('calls.at(-1)[1].messages.at(-1).content')
+    calls_before=limited.evaluate('calls.length')
+    limited.evaluate('window.dispatchEvent(new Event("focus"))')
+    assert limited.evaluate('calls.at(-1)[0]')=='inferenceState'
+    assert limited.evaluate('calls.length') > calls_before
 
     # GitHub onboarding is an actual app action, available before loading a model.
     git=browser.new_page(viewport={'width':390,'height':844})

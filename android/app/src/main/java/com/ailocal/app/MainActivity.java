@@ -64,6 +64,9 @@ public class MainActivity extends Activity {
       new Runnable() {
         public void run() {
           if (!destroyed) {
+            // Recover missed WebView callbacks without queuing behind downloads/GitHub.
+            if (inferenceService != null && inferenceService.isBusy())
+              event("inference", inferenceService.snapshot());
             io.execute(
                 () -> {
                   try {
@@ -553,6 +556,22 @@ public class MainActivity extends Activity {
             });
         return;
       }
+      if (action.equals("backgroundSettings")) {
+        runOnUiThread(
+            () ->
+                startActivity(
+                    new Intent(
+                        android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        android.net.Uri.parse("package:" + getPackageName()))));
+        return;
+      }
+      if (action.equals("inferenceState")) {
+        runOnUiThread(
+            () -> {
+              if (inferenceService != null) event("inference", inferenceService.snapshot());
+            });
+        return;
+      }
       if (action.equals("unload")) {
         runOnUiThread(
             () -> {
@@ -797,6 +816,19 @@ public class MainActivity extends Activity {
               .setNegativeButton("Continuar", null)
               .show();
         });
+  }
+
+  @Override
+  protected void onResume() {
+    super.onResume();
+    web.onResume();
+    if (inferenceService != null) event("inference", inferenceService.snapshot());
+  }
+
+  @Override
+  protected void onPause() {
+    web.onPause();
+    super.onPause();
   }
 
   @Override

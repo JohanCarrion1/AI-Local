@@ -17,7 +17,7 @@ const defaultPrefs = {
   defaultModel: "",
   autoLoad: false,
   context: 1024,
-  response: 512,
+  response: 1024,
   instructions: "Eres un asistente útil. Responde en español con precisión.",
   showStats: false,
   imageTokens: 256,
@@ -101,6 +101,7 @@ let operationStatus = "",
   busyTimer = null,
   chatFailure = current.failure || null,
   operationStopped = false;
+let finishReason = "";
 let resumeAfterLoad = false;
 let recoveringPending = !!current.pending,
   loadRequestId = "";
@@ -486,7 +487,55 @@ $("removeWorkspace").onclick = () => {
   }
 };
 $("createToken").onclick = () => command("tokenHelp");
-function renderChat() {
+function messageContent(text) {
+  const root = el("div", "message-text formatted");
+  // Split fenced code without assigning model output to innerHTML.
+  const fence = /```[^\n]*\n([\s\S]*?)(?:```|$)/g;
+  let last = 0,
+    match;
+  const prose = (value) => {
+    const p = el("div", "message-paragraph");
+    value
+      .split(/(\*\*[^*]+\*\*)/g)
+      .forEach((part) =>
+        p.append(
+          part.startsWith("**") && part.endsWith("**")
+            ? el("strong", "", part.slice(2, -2))
+            : document.createTextNode(part),
+        ),
+      );
+    root.append(p);
+  };
+  while ((match = fence.exec(text))) {
+    if (match.index > last) prose(text.slice(last, match.index));
+    const pre = el("pre", "message-code");
+    pre.append(el("code", "", match[1].replace(/\n$/, "")));
+    root.append(pre);
+    last = fence.lastIndex;
+  }
+  if (last < text.length) prose(text.slice(last));
+  return root;
+}
+function continueAnswer() {
+  if (running) return;
+  if (!state.active) return openPicker();
+  messages.push({
+    role: "user",
+    content:
+      "Continúa exactamente desde donde terminaste, sin repetir el texto anterior. Completa la respuesta y el código pendiente.",
+  });
+  persist();
+  startChat();
+}
+function renderChat(streamOnly = false) {
+  const stream = $("messages").querySelector(".streaming");
+  if (streamOnly && stream && running && operationKind === "chat") {
+    const root = $("messages");
+    const follow = root.scrollHeight - root.scrollTop - root.clientHeight < 100;
+    stream.textContent = answer || progressText();
+    if (follow) root.scrollTop = root.scrollHeight;
+    return;
+  }
   updateWorkspace();
   const root = $("messages"),
     follow = root.scrollHeight - root.scrollTop - root.clientHeight < 100,
@@ -526,7 +575,9 @@ function renderChat() {
       const b = el("div", "bubble " + m.role);
       b.append(
         el("small", "", m.role === "user" ? "Tú" : "Auren"),
-        el("div", "message-text", m.content),
+        m.role === "assistant"
+          ? messageContent(m.content)
+          : el("div", "message-text", m.content),
       );
       if (m.image) {
         const photo = el("div", "message-photo");
@@ -555,6 +606,35 @@ function renderChat() {
           }
         };
         actions.append(copy);
+        if (
+          m === messages.at(-1) &&
+          ["length", "context"].includes(m.finishReason)
+        ) {
+          const more = el(
+            "button",
+            "quiet continue-answer",
+            m.finishReason === "context" ? "Ampliar contexto" : "Continuar",
+          );
+          more.disabled = running;
+          more.onclick =
+            m.finishReason === "context"
+              ? () => {
+                  openSettings();
+                  $("contextTokens").focus();
+                  toast("Elige un contexto mayor y vuelve a cargar el modelo.");
+                }
+              : continueAnswer;
+          actions.append(more);
+          b.append(
+            el(
+              "p",
+              "finish-note",
+              m.finishReason === "context"
+                ? "Se alcanzó el contexto de esta respuesta."
+                : "Se alcanzó el límite de texto de esta respuesta.",
+            ),
+          );
+        }
         if ((opened && fileSha) || m.workspace) {
           const edit = el("button", "quiet to-github", "Llevar a GitHub ↗");
           edit.onclick = () => {
@@ -753,6 +833,7 @@ function startChat() {
     : null;
   persist();
   answer = "";
+  finishReason = "";
   setBusy(true, "chat");
   renderChat();
   command("chat", {
@@ -762,7 +843,7 @@ function startChat() {
     imageId: latestPhoto?.id || undefined,
     expectsImage: !!latestPhoto,
     responseStyle: prefs.responseStyle === "detailed" ? "detailed" : "direct",
-    maxTokens: Number($("responseTokens").value) || 512,
+    maxTokens: Number($("responseTokens").value) || 1024,
     messages: [
       {
         role: "system",
@@ -1209,9 +1290,11 @@ function applyInference(data) {
   if (Object.hasOwn(data, "selectedImage"))
     setAttachment(data.selectedImage?.status ? data.selectedImage : null);
   $("unloadModel").disabled = !state.active || data.busy;
-  $("backgroundStatus").textContent = state.active
-    ? "El modelo se mantiene en segundo plano. Usa la notificación para volver o detener la respuesta."
-    : "Al cargar un modelo, la app lo mantiene con una notificación y continúa las respuestas al cambiar de aplicación.";
+  $("backgroundStatus").textContent = data.backgroundRestricted
+    ? "Android está restringiendo el segundo plano. Abre Permisos y batería y elige batería sin restricciones para Auren."
+    : state.active
+      ? "El modelo se mantiene en segundo plano. Usa la notificación para volver o detener la respuesta."
+      : "Al cargar un modelo, la app lo mantiene con una notificación y continúa las respuestas al cambiar de aplicación.";
   const job = data.job || {},
     rejected = data.rejection || {};
   if (
@@ -1265,7 +1348,7 @@ function applyInference(data) {
       operationStarted = job.startedAt || Date.now();
       if (job.progress)
         receive("progress", { ...job.progress, action: job.action });
-      renderChat();
+      renderChat(true);
     } else if (!handledNativeJobs.has(job.id)) {
       handledNativeJobs.add(job.id);
       if (
@@ -1298,6 +1381,7 @@ function applyInference(data) {
             target.messages.push({
               role: "assistant",
               content: job.answer,
+              finishReason: job.metrics?.finishReason,
               workspace: target.requestWorkspace,
               incomplete: job.status !== "success",
             });
@@ -1335,8 +1419,9 @@ function applyInference(data) {
   } else if (!data.busy && operationKind === "unload") setBusy(false);
   updateHeader();
   renderPicker();
-  renderChat();
+  renderChat(true);
 }
+$("backgroundSettings").onclick = () => command("backgroundSettings");
 $("unloadModel").onclick = () => {
   if (running || !state.active) return;
   setBusy(true, "unload");
@@ -1434,6 +1519,7 @@ window.receive = (type, data) => {
       break;
     }
     case "metrics":
+      finishReason = data.finishReason || "";
       operationStopped = !!data.stopped;
       if (prefs.showStats) {
         $("chatHint").classList.remove("hidden");
@@ -1475,7 +1561,7 @@ window.receive = (type, data) => {
     case "answer":
       if (operationKind !== "chat") break;
       answer = data;
-      renderChat();
+      renderChat(true);
       break;
     case "done":
       if (!running) break;
@@ -1484,6 +1570,7 @@ window.receive = (type, data) => {
           messages.push({
             role: "assistant",
             content: answer,
+            finishReason,
             workspace: current.requestWorkspace,
           });
         } else if (!chatFailure) {
@@ -1678,7 +1765,75 @@ function contrast(a, b) {
     y = luminance(b);
   return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
 }
-function applyTheme() {
+let palette = { h: 22, s: 0.48, v: 0.9 };
+function syncPalette() {
+  const c = rgb(prefs.accent).map((n) => n / 255),
+    max = Math.max(...c),
+    min = Math.min(...c),
+    d = max - min;
+  if (d) {
+    const h =
+      max === c[0]
+        ? ((c[1] - c[2]) / d) % 6
+        : max === c[1]
+          ? (c[2] - c[0]) / d + 2
+          : (c[0] - c[1]) / d + 4;
+    palette.h = (h * 60 + 360) % 360;
+  }
+  palette.s = max ? d / max : 0;
+  palette.v = max;
+  drawPalette();
+}
+function drawPalette() {
+  $("colorPlane").style.setProperty("--hue", palette.h);
+  $("colorCursor").style.left = palette.s * 100 + "%";
+  $("colorCursor").style.top = (1 - palette.v) * 100 + "%";
+  $("colorHue").value = Math.round(palette.h);
+  $("colorSaturation").value = Math.round(palette.s * 100);
+  $("colorValue").value = Math.round(palette.v * 100);
+}
+function choosePalette() {
+  const { h, s, v } = palette;
+  const c = [5, 3, 1].map((n) => {
+    const k = (n + h / 60) % 6;
+    return Math.round(255 * (v - v * s * Math.max(0, Math.min(k, 4 - k, 1))));
+  });
+  prefs.accent = "#" + c.map((n) => n.toString(16).padStart(2, "0")).join("");
+  savePrefs();
+  drawPalette();
+  applyTheme(false);
+}
+$("colorPlane").onpointerdown = (event) => {
+  event.preventDefault();
+  $("colorPlane").setPointerCapture(event.pointerId);
+  selectPlane(event);
+};
+function selectPlane(event) {
+  const r = $("colorPlane").getBoundingClientRect();
+  palette.s = Math.max(0, Math.min(1, (event.clientX - r.left) / r.width));
+  palette.v = 1 - Math.max(0, Math.min(1, (event.clientY - r.top) / r.height));
+  choosePalette();
+}
+$("colorPlane").onpointermove = (event) => {
+  if ($("colorPlane").hasPointerCapture(event.pointerId)) selectPlane(event);
+};
+[
+  ["colorHue", "h", 1],
+  ["colorSaturation", "s", 100],
+  ["colorValue", "v", 100],
+].forEach(([id, key, scale]) => {
+  $(id).oninput = () => {
+    palette[key] = Number($(id).value) / scale;
+    choosePalette();
+  };
+});
+function reconnectInference() {
+  if (document.visibilityState === "visible") command("inferenceState");
+}
+window.addEventListener("pageshow", reconnectInference);
+window.addEventListener("focus", reconnectInference);
+document.addEventListener("visibilitychange", reconnectInference);
+function applyTheme(syncColor = true) {
   const light =
     prefs.mode === "light" ||
     (prefs.mode === "system" &&
@@ -1704,6 +1859,7 @@ function applyTheme() {
       : "#ffffff",
   );
   $("customAccent").value = prefs.accent;
+  if (syncColor) syncPalette();
   document
     .querySelectorAll("[data-accent]")
     .forEach((b) =>

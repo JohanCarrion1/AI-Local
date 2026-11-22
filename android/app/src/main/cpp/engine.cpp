@@ -23,6 +23,8 @@ static llama_context * ctx = nullptr;
 static mtmd_context * vision = nullptr;
 static std::atomic<bool> cancelled{false};
 static int generated_tokens = 0;
+static std::string finish_reason = "";
+static int context_shifts = 0, trimmed_tokens = 0;
 static double generation_ms = 0;
 static bool compact_kv = false;
 static std::vector<llama_token> prompt_cache;
@@ -141,12 +143,13 @@ extern "C" JNIEXPORT void JNICALL Java_com_ailocal_app_Engine_loadConfigured(JNI
     // It is loaded lazily for image encoding and released before sampling.
     projector_path=str(e,projector); vision_budget=std::max(128,std::min(512,(int)imageBudget));
 }
-extern "C" JNIEXPORT void JNICALL Java_com_ailocal_app_Engine_generateImage(JNIEnv * e,jclass,jobjectArray roles,jobjectArray texts,jbyteArray rgb,jint width,jint height,jint maxTokens,jobject sink,jobject observer,jint imageIndex) {
+extern "C" JNIEXPORT void JNICALL Java_com_ailocal_app_Engine_generateImage(JNIEnv * e,jclass,jobjectArray roles,jobjectArray texts,jbyteArray rgb,jint width,jint height,jint maxTokens,jobject sink,jobject observer,jint imageIndex,jboolean allowHistoryWindow) {
     if(!ctx) { fail(e,"Selecciona y carga un modelo."); return; }
-    auto started=std::chrono::steady_clock::now(); generated_tokens=0; generation_ms=0; reused_tokens=0;
+    auto started=std::chrono::steady_clock::now(); finish_reason="error"; context_shifts=trimmed_tokens=0; generated_tokens=0; generation_ms=0; reused_tokens=0;
     prompt_ms=image_ms=decode_ms=first_token_ms=0; prompt_tokens=image_tokens=0; reused_image=image_processed=false;
     const int context_size=(int)llama_n_ctx(ctx);
-    int output_limit=std::max(1,std::min((int)maxTokens,2048));
+    const int requested_limit=std::max(1,std::min((int)maxTokens,2048));
+    int output_limit=requested_limit;
     cancelled=false;
     Progress progress(e,observer);
     std::vector<std::string> rs,ts; int count=e->GetArrayLength(texts);
@@ -158,11 +161,18 @@ extern "C" JNIEXPORT void JNICALL Java_com_ailocal_app_Engine_generateImage(JNIE
         }
         ts[imageIndex]=std::string(mtmd_default_marker())+"\n"+ts[imageIndex];
     }
-    std::vector<llama_chat_message> messages; for(int i=0;i<count;i++) messages.push_back({rs[i].c_str(),ts[i].c_str()});
     const char * tmpl=llama_model_chat_template(model,nullptr);
-    int n=llama_chat_apply_template(tmpl,messages.data(),messages.size(),true,nullptr,0);
-    if(n<0) { fail(e,"Plantilla de chat incompatible con el motor."); return; }
-    std::vector<char> formatted(n+1); llama_chat_apply_template(tmpl,messages.data(),messages.size(),true,formatted.data(),formatted.size());
+    int n=0; std::vector<char> formatted;
+    auto format_chat=[&]()->bool {
+        std::vector<llama_chat_message> messages;
+        for(size_t i=0;i<rs.size();i++) messages.push_back({rs[i].c_str(),ts[i].c_str()});
+        n=llama_chat_apply_template(tmpl,messages.data(),messages.size(),true,nullptr,0);
+        if(n<0) { fail(e,"Plantilla de chat incompatible con el motor."); return false; }
+        formatted.resize(n+1);
+        llama_chat_apply_template(tmpl,messages.data(),messages.size(),true,formatted.data(),formatted.size());
+        return true;
+    };
+    if(!format_chat()) return;
     auto vocab=llama_model_get_vocab(model); llama_pos past=0;
     auto decode_text=[&](const char * data,int size,bool special,int start)->bool {
         int nt=-llama_tokenize(vocab,data,size,nullptr,0,special,true);
@@ -216,8 +226,34 @@ extern "C" JNIEXPORT void JNICALL Java_com_ailocal_app_Engine_generateImage(JNIE
         }
     } else {
         int nt=-llama_tokenize(vocab,formatted.data(),n,nullptr,0,true,true);
-        if(nt<=0 || nt+8>=context_size) { fail(e,"Contexto completo. Inicia un chat nuevo."); return; }
-        output_limit=std::min(output_limit,context_size-nt-1);
+        if(nt<=0) { fail(e,"No se pudo preparar el mensaje."); return; }
+        if(nt+8>=context_size) {
+            if(!allowHistoryWindow) { fail(e,"El archivo y el historial exceden el contexto. Aumenta el contexto o selecciona un fragmento menor del archivo."); return; }
+            const int original=nt;
+            // Reapply the chat template after dropping old turns. Cutting the
+            // formatted token stream would destroy role boundaries.
+            const size_t first=!rs.empty() && rs[0]=="system" ? 1 : 0;
+            while(nt+64>=context_size && rs.size()>first+1) {
+                if(rs.size()==first+2 && rs[first]=="assistant") {
+                    int size=-llama_tokenize(vocab,ts[first].data(),ts[first].size(),nullptr,0,false,true);
+                    int drop=std::max(32,nt-context_size+96);
+                    if(size>drop+32) {
+                        std::vector<llama_token> previous(size);
+                        llama_tokenize(vocab,ts[first].data(),ts[first].size(),previous.data(),size,false,true);
+                        int bytes=-llama_detokenize(vocab,previous.data()+drop,size-drop,nullptr,0,true,false);
+                        if(bytes<=0) { fail(e,"No se pudo ajustar el historial."); return; }
+                        std::vector<char> tail(bytes);
+                        bytes=llama_detokenize(vocab,previous.data()+drop,size-drop,tail.data(),tail.size(),true,false);
+                        ts[first].assign(tail.data(),std::max(0,bytes));
+                    } else { rs.erase(rs.begin()+first); ts.erase(ts.begin()+first); }
+                } else { rs.erase(rs.begin()+first); ts.erase(ts.begin()+first); }
+                if(!format_chat()) return;
+                nt=-llama_tokenize(vocab,formatted.data(),n,nullptr,0,true,true);
+                if(nt<=0) { fail(e,"No se pudo ajustar el historial."); return; }
+            }
+            if(nt+8>=context_size) { fail(e,"Contexto completo. Reduce el mensaje o aumenta el contexto en el perfil."); return; }
+            trimmed_tokens=std::max(0,original-nt);
+        }
         std::vector<llama_token> tokens(nt); llama_tokenize(vocab,formatted.data(),n,tokens.data(),nt,true,true);
         // Reuse only the exact token prefix already present in KV, retaining at
         // least one fresh input token to produce valid logits for sampling.
@@ -243,7 +279,8 @@ extern "C" JNIEXPORT void JNICALL Java_com_ailocal_app_Engine_generateImage(JNIE
         prompt_ms=elapsed(prompt_started);
     }
     image_processed=rgb!=nullptr;
-    output_limit=std::min(output_limit,context_size-(int)past-1);
+    if(rgb) output_limit=std::min(output_limit,context_size-(int)past-1);
+    finish_reason=rgb && output_limit<requested_limit ? "context" : "length";
     progress.emit("generate",0,output_limit);
     auto sampler=llama_sampler_chain_init(llama_sampler_chain_default_params());
     // Image reading/OCR should use the highest-probability interpretation,
@@ -256,15 +293,29 @@ extern "C" JNIEXPORT void JNICALL Java_com_ailocal_app_Engine_generateImage(JNIE
     bool emitted=false;
     auto decode_started=std::chrono::steady_clock::now();
     for(int i=0;i<output_limit && !cancelled && past<context_size;i++,past++) {
-        auto token=llama_sampler_sample(sampler,ctx,-1); if(llama_vocab_is_eog(vocab,token)) break;
+        auto token=llama_sampler_sample(sampler,ctx,-1); if(llama_vocab_is_eog(vocab,token)) { finish_reason="eos"; break; }
         generated_tokens++; llama_sampler_accept(sampler,token); std::vector<char> piece(1024); int len=llama_token_to_piece(vocab,token,piece.data(),piece.size(),0,false);
         if(len<0) { piece.resize(-len); len=llama_token_to_piece(vocab,token,piece.data(),piece.size(),0,false); }
         if(len>0) { if(!emitted) first_token_ms=elapsed(started); emitted=true; auto bytes=e->NewByteArray(len); e->SetByteArrayRegion(bytes,0,len,(jbyte*)piece.data()); e->CallVoidMethod(sink,method,bytes); e->DeleteLocalRef(bytes); if(e->ExceptionCheck()) break; }
         if(cancelled || i+1==output_limit) break;
+        if(past+1>=context_size) {
+            auto memory=llama_get_memory(ctx);
+            const int keep=std::min(256,context_size/4);
+            const int discard=((int)past-keep)/2;
+            if(rgb || !llama_memory_can_shift(memory) || discard<=0
+                || !llama_memory_seq_rm(memory,0,keep,keep+discard)) {
+                finish_reason="context"; break;
+            }
+            llama_memory_seq_add(memory,0,keep+discard,past,-discard);
+            past-=discard;
+            context_shifts++;
+            // A shifted KV no longer represents an exact original prefix.
+            prompt_cache.clear(); vision_base.clear(); vision_hash=0; vision_past=0;
+        }
         auto batch=llama_batch_get_one(&token,1); int code=llama_decode(ctx,batch);
         if(cancelled) { clear_cache(); break; }
         if(code) { clear_cache(); fail(e,"Error durante la generación."); break; }
-        if(!rgb) prompt_cache.push_back(token);
+        if(!rgb && !context_shifts) prompt_cache.push_back(token);
     }
     generation_ms=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-started).count();
     decode_ms=elapsed(decode_started);
@@ -281,6 +332,8 @@ extern "C" JNIEXPORT jstring JNICALL Java_com_ailocal_app_Engine_stats(JNIEnv * 
         << ",\"compactKv\":" << (compact_kv?"true":"false")
         << ",\"cachedTokens\":" << reused_tokens
         << ",\"generatedTokens\":" << generated_tokens
+        << ",\"finishReason\":\"" << (cancelled ? "cancelled" : finish_reason) << "\""
+        << ",\"contextShifts\":" << context_shifts << ",\"trimmedTokens\":" << trimmed_tokens
         << ",\"threads\":" << thread_count << ",\"promptTokens\":" << prompt_tokens
         << ",\"cpuFeatures\":\"" << cpu_features() << "\""
         << ",\"imageTokens\":" << image_tokens << ",\"imageReused\":" << (reused_image?"true":"false")

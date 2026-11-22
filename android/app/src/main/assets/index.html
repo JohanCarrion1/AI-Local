@@ -340,9 +340,61 @@
             title="Neutro"
           ></button>
         </div>
-        <label class="custom-color" for="customAccent"
-          >Otro color<input id="customAccent" type="color" value="#e5a078"
-        /></label>
+        <fieldset class="color-palette">
+          <legend>Tu color</legend>
+          <div
+            id="colorPlane"
+            class="color-plane"
+            aria-label="Paleta de saturación y brillo"
+          >
+            <span id="colorCursor" class="color-cursor"></span>
+          </div>
+          <label for="colorHue">Tono</label>
+          <input
+            id="colorHue"
+            class="hue-slider"
+            type="range"
+            min="0"
+            max="360"
+            value="22"
+          />
+          <div class="color-fine">
+            <label
+              >Saturación<input
+                id="colorSaturation"
+                type="range"
+                min="0"
+                max="100"
+                value="48"
+            /></label>
+            <label
+              >Brillo<input
+                id="colorValue"
+                type="range"
+                min="0"
+                max="100"
+                value="90"
+            /></label>
+          </div>
+          <label class="custom-color" for="customAccent"
+            >Código HEX
+            <input
+              id="customAccent"
+              type="text"
+              value="#e5a078"
+              maxlength="7"
+              spellcheck="false"
+              autocapitalize="off"
+              autocomplete="off"
+              inputmode="text"
+              pattern="#[0-9a-fA-F]{6}"
+            />
+          </label>
+          <small
+            >Desliza en la paleta o escribe cualquier color. Se guarda al
+            elegirlo.</small
+          >
+        </fieldset>
       </section>
       <section class="settings-group">
         <h3>Chat predeterminado</h3>
@@ -358,8 +410,8 @@
         ><label for="responseTokens">Máximo de tokens por respuesta</label
         ><select id="responseTokens">
           <option value="256">256</option>
-          <option value="512" selected>512</option>
-          <option value="1024">1024</option>
+          <option value="512">512</option>
+          <option value="1024" selected>1024</option>
           <option value="2048">2048</option></select
         ><label for="responseStyle">Estilo de respuesta</label>
         <select id="responseStyle">
@@ -452,6 +504,13 @@
           Al cargar un modelo, la app continúa las respuestas al cambiar de
           aplicación.
         </p>
+        <button id="backgroundSettings" class="quiet">
+          Permisos y batería
+        </button>
+        <small
+          >Si tu teléfono limita Auren, elige batería sin restricciones en sus
+          ajustes.</small
+        >
         <button id="unloadModel" class="quiet" disabled>
           Liberar modelo de la RAM
         </button>
@@ -467,7 +526,7 @@
       </section>
       <small id="settingsStatus" role="status"
         >Los ajustes se guardan en este teléfono.</small
-      ><small class="version">Auren · 2.7.1</small>
+      ><small class="version">Auren · 2.8.0</small>
     </dialog>
     <dialog
       id="modelPicker"

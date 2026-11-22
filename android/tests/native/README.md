@@ -34,3 +34,7 @@ These are host JNI smoke results, not device performance measurements or Android
 ## 7B Q3 memory regression check (host CPU)
 
 Qwen2.5-Coder-7B-Instruct Q3_K_M was downloaded from the pinned catalog revision and SHA-256 verified. The production JNI engine loaded all model weights, created context 1024 with K Q8 / V F16, and answered `4` to 2+2. Linux peak RSS was 5,089,668 KiB with extra repacking buffers and 3,858,816 KiB with `use_extra_bufts=false`. The backend's extra `CPU_REPACK` allocation was 1,201.92 MiB; disabling it prioritizes memory over that acceleration. These are host measurements and not claims about any particular Android phone or long-running chat stability. Product loading opens ordinary chat directly; these engineering checks are not a prerequisite in the app.
+
+## 2.8 context and finish reasons
+
+`WindowRegression` runs the actual JNI with a verified GGUF and a 512-token context. It checks a one-token output cap reports `length`, a longer copy task crosses the context boundary by shifting KV, protected GitHub references are rejected rather than silently truncated, an oversized conversation keeps the latest question, and a natural answer reports `eos`. Android `NativeChatTest` also goes Home while tokens are being produced, verifies the service answer grows without a visible WebView, returns while inference is still active, and checks that completion is imported once. These are real inference checks; UI mocks separately cover color picking, stored finish reasons, continuation and safe code rendering.
