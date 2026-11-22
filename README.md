@@ -39,10 +39,15 @@ La lectura de imágenes utiliza selección determinista de tokens para evitar va
 5. Para fotos, carga un modelo de **Visión** (SmolVLM 500M o Qwen2.5-VL 7B si hay recursos), pulsa Imagen y selecciona una imagen con el selector de Android. Qwen Coder admite texto, no imágenes. Espera la miniatura con nombre y dimensiones antes de enviar. La foto se corrige por orientación EXIF y se reduce a un máximo de 1024 píxeles. Las copias privadas sobreviven al cambio de pantalla y permiten preguntar de nuevo por la última foto del chat; se conservan hasta 24 fotos y después se eliminan las más antiguas. Si falta el archivo se solicita adjuntarlo de nuevo, sin enviar silenciosamente un turno sin imagen. Borrar todo el historial elimina esas copias.
 6. Menú → Conectar a GitHub: conecta un token de acceso personal, selecciona un repositorio y rama, abre una carpeta o archivo, edita el texto y revisa antes de guardar un commit. Puedes llevar el archivo al chat para pedir una revisión y copiar una respuesta al editor; revisa el resultado antes del commit. Si el archivo cambió remotamente, recárgalo: no se sobrescriben conflictos silenciosamente. No se ejecutan comandos del modelo ni se publican sus respuestas automáticamente. Pulsa Desconectar para borrar el token.
 
-## Modelos incluidos (22 modelos; 19 de 5B o más)
+## Modelos incluidos (27 modelos; 19 de 5B o más)
 
 | Modelo | Cuantización | Descarga aprox. | Entrada |
 |---|---|---:|---|
+| Qwen3-VL Instruct · 4B | Q4_K_M | 2.95 GB | Texto + imagen |
+| Qwen3-VL Instruct · 2B | Q4_K_M | 1.55 GB | Texto + imagen |
+| Qwen3 Instruct 2507 · 4B | Q4_K_M | 2.50 GB | Texto |
+| Gemma 3 Instruct · 4B | Q4_K_M | 3.34 GB | Texto + imagen |
+| Llama 3.2 Instruct · 3B | Q4_K_M | 2.02 GB | Texto |
 | Qwen3 · 8B | Q4_K_M | 5.03 GB | Texto |
 | Qwen3 · 8B · compacto Q3 | Q3_K_M | 4.12 GB | Texto |
 | Qwen3 · 14B | Q4_K_M | 9.00 GB | Texto |

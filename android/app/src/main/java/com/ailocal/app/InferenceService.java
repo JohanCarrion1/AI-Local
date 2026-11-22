@@ -551,11 +551,16 @@ public class InferenceService extends Service {
       if (!imageId.isEmpty() && imageId.equals(history.getJSONObject(i).optString("imageId")))
         imageIndex = i;
     }
-    if (request.optString("responseStyle", "direct").equals("direct")
-        && ModelStore.find(models, active)
-            .optString("repo")
-            .toLowerCase(java.util.Locale.ROOT)
-            .contains("qwen3"))
+    String modelRepo =
+        ModelStore.find(models, active).optString("repo").toLowerCase(java.util.Locale.ROOT);
+    // Only the original hybrid Qwen3 models understand /no_think. The 2507 Instruct, VL and
+    // Coder variants never think, so they would read the suffix as part of the user's text.
+    boolean hybridQwen3 =
+        modelRepo.contains("qwen3")
+            && !modelRepo.contains("2507")
+            && !modelRepo.contains("-vl")
+            && !modelRepo.contains("coder");
+    if (request.optString("responseStyle", "direct").equals("direct") && hybridQwen3)
       for (int i = 0; i < texts.length; i++) if (roles[i].equals("user")) texts[i] += "\n/no_think";
     if (!imageId.isEmpty()) {
       if (!ModelStore.find(models, active).getBoolean("vision"))
