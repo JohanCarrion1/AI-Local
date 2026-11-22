@@ -1,5 +1,68 @@
 [
   {
+    "id": "qwen3-abl4",
+    "name": "Qwen3 · 4B Abliterated (sin filtros)",
+    "repo": "bartowski/mlabonne_Qwen3-4B-abliterated-GGUF",
+    "revision": "22253b429533b604f50239136fc6b03300bd9ac6",
+    "parameters": 4,
+    "kind": "code",
+    "quant": "Q4_K_M",
+    "description": "Qwen3 4B con el rechazo eliminado (abliterated, comunidad). Responde sin negarse a casi nada, también en código, y es rápido en el teléfono. Úsalo con criterio y revisa lo que genera.",
+    "vision": false,
+    "files": [
+      {
+        "file": "mlabonne_Qwen3-4B-abliterated-Q4_K_M.gguf",
+        "size": 2497280544,
+        "sha256": "004f7b8f59ccd5fa42258c52aa2087b89524cced84e955b9c8b115035ca073b2",
+        "url": "https://huggingface.co/bartowski/mlabonne_Qwen3-4B-abliterated-GGUF/resolve/22253b429533b604f50239136fc6b03300bd9ac6/mlabonne_Qwen3-4B-abliterated-Q4_K_M.gguf"
+      }
+    ],
+    "kvElementsPerToken": 73728,
+    "architectureSource": "Qwen/Qwen3-4B"
+  },
+  {
+    "id": "dolphin3-q3",
+    "name": "Dolphin 3.0 · Qwen2.5 3B (sin censura)",
+    "repo": "bartowski/Dolphin3.0-Qwen2.5-3b-GGUF",
+    "revision": "4f84a9b5b7ecc4c49367838cf226677008f37c1e",
+    "parameters": 3,
+    "kind": "chat",
+    "quant": "Q4_K_M",
+    "description": "Dolphin 3.0: afinado para obedecer al usuario y a tus instrucciones de sistema con muy pocos rechazos. Ligero, bueno para conversar, redactar y programar.",
+    "vision": false,
+    "files": [
+      {
+        "file": "Dolphin3.0-Qwen2.5-3b-Q4_K_M.gguf",
+        "size": 1929906144,
+        "sha256": "0cb1908c5f444e1dc2c5b5619d62ac4957a22ad39cd42f2d0b48e2d8b1c358ab",
+        "url": "https://huggingface.co/bartowski/Dolphin3.0-Qwen2.5-3b-GGUF/resolve/4f84a9b5b7ecc4c49367838cf226677008f37c1e/Dolphin3.0-Qwen2.5-3b-Q4_K_M.gguf"
+      }
+    ],
+    "kvElementsPerToken": 18432,
+    "architectureSource": "Qwen/Qwen2.5-3B"
+  },
+  {
+    "id": "llama32-unc3",
+    "name": "Llama 3.2 · 3B Uncensored",
+    "repo": "bartowski/Llama-3.2-3B-Instruct-uncensored-GGUF",
+    "revision": "db993eb152fc89f32e061f3575d1b8111648900f",
+    "parameters": 3,
+    "kind": "chat",
+    "quant": "Q4_K_M",
+    "description": "Llama 3.2 3B sin filtros de rechazo (comunidad). Rápido y ligero para conversar y escribir sin restricciones; menos preciso en código que Qwen.",
+    "vision": false,
+    "files": [
+      {
+        "file": "Llama-3.2-3B-Instruct-uncensored-Q4_K_M.gguf",
+        "size": 2241003904,
+        "sha256": "80f532552e3d56e366226f428395de8285a671f2da1d5fd68563741181b77a95",
+        "url": "https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-uncensored-GGUF/resolve/db993eb152fc89f32e061f3575d1b8111648900f/Llama-3.2-3B-Instruct-uncensored-Q4_K_M.gguf"
+      }
+    ],
+    "kvElementsPerToken": 57344,
+    "architectureSource": "meta-llama/Llama-3.2-3B-Instruct"
+  },
+  {
     "id": "qwen3-instruct4",
     "name": "Qwen3 Instruct 2507 · 4B",
     "repo": "unsloth/Qwen3-4B-Instruct-2507-GGUF",
