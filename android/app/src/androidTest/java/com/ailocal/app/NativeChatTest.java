@@ -93,6 +93,7 @@ public class NativeChatTest {
     evaluate("page('chat');newConversation()");
     evaluate(
         "prefs.autoLoad=false;prefs.response=256;document.getElementById('responseTokens').value='256';"
+            + "prefs.context=1024;document.getElementById('contextTokens').value='1024';"
             + "beginLoad(state.models.find(m=>m.id==='qwen05'))");
     await("!running && state.active === 'qwen05'", 120);
     assertEquals("false", evaluate("!!chatFailure"));
