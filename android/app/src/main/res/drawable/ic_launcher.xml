@@ -1,3 +1,1 @@
-<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="108" android:viewportHeight="108">
-    <path android:fillColor="#FFFFFF" android:fillType="evenOdd" android:pathData="M26,47L28,42Q46,29 86,25L60,40L87,37L66,49L85,52L57,61L35,84L40,60Q32,53 25,56Q22,57 21,62Q16,55 20,51Z M34,48L41,46Q39,51 35,50Z M38,82L57,61L82,56L41,81Z" />
-</vector>
+<bitmap xmlns:android="http://schemas.android.com/apk/res/android" android:src="@drawable/auren_notification" android:gravity="fill" android:filter="true" android:tint="#FFFFFF" />
