@@ -137,7 +137,7 @@ jobs:
           cmake -S android/tests/native -B build/native -DCMAKE_BUILD_TYPE=Release
           cmake --build build/native -j 4
           mkdir -p build/classes
-          javac -d build/classes android/app/src/main/java/com/ailocal/app/Engine.java android/tests/native/VisionRegression.java
+          javac -d build/classes android/app/src/main/java/com/ailocal/app/Engine.java android/tests/native/VisionRegression.java android/tests/native/CacheRegression.java
       - name: Download the actual 7B vision model
         run: python3 android/tests/download_fixtures.py "$RUNNER_TEMP/auren-fixtures" qwenvl7
       - name: Verify real 7B pixels and visual prefix reuse on ARM64
@@ -146,6 +146,10 @@ jobs:
         run: |
           set -o pipefail
           java -Djava.library.path=build/native/bin -cp build/classes com.ailocal.app.VisionRegression "$RUNNER_TEMP/auren-fixtures/qwenvl7-0.gguf" "$RUNNER_TEMP/auren-fixtures/qwenvl7-1.gguf" "$PWD/build/native/bin" 2>&1 | tee arm64-7b-vision.log
+      - name: Verify full 7B text KV reuse and invalidation
+        env:
+          LD_LIBRARY_PATH: ${{ github.workspace }}/build/native/bin
+        run: java -Djava.library.path=build/native/bin -cp build/classes com.ailocal.app.CacheRegression "$RUNNER_TEMP/auren-fixtures/qwenvl7-0.gguf" "$PWD/build/native/bin"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

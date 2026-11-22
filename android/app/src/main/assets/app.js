@@ -357,14 +357,7 @@ function renderPicker() {
     );
     b.disabled = running;
     b.onclick = () => {
-      if (state.active === m.id && state.activeContext === contextFor(m)) {
-        if (
-          m.vision &&
-          (state.activeImageTokens || 256) !== prefs.imageTokens
-        ) {
-          beginLoad(m);
-          return;
-        }
+      if (configurationMatches(m)) {
         page("chat");
         return;
       }
@@ -827,6 +820,15 @@ function setAttachment(photo) {
   $("send").disabled = running || imagePreparing || imageFailed;
 }
 
+function configurationMatches(model) {
+  return (
+    state.active === model.id &&
+    state.activeContext === contextFor(model) &&
+    (!model.vision ||
+      (state.activeImageTokens || 256) ===
+        (prefs.imageTokens === 512 ? 512 : 256))
+  );
+}
 function contextFor(model) {
   return Math.max(
     model.vision ? 2048 : 512,
@@ -1039,14 +1041,14 @@ function renderModels() {
         "button",
         available ? "secondary" : "primary",
         available
-          ? state.active === m.id && state.activeContext === contextFor(m)
+          ? configurationMatches(m)
             ? "En uso ✓"
             : "Cargar modelo"
           : "Descargar ↓",
       );
     btn.onclick = () => {
       if (available) {
-        if (state.active === m.id && state.activeContext === contextFor(m)) {
+        if (configurationMatches(m)) {
           page("chat");
           return;
         }

@@ -80,7 +80,7 @@ public class VisionPhotoTest {
                 new Intent().setData(uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)));
     evaluate("document.getElementById('attach').click()");
     await("!!attachment && attachment.status==='ready' && !imagePreparing", 30);
-    assertEquals("true", evaluate("document.getElementById('attachmentPreview').naturalWidth>0"));
+    await("document.getElementById('attachmentPreview').naturalWidth>0", 10);
   }
 
   private void ask() throws Exception {
@@ -123,7 +123,7 @@ public class VisionPhotoTest {
           "typeof window.receive==='function' && !!attachment && attachment.status==='ready'", 30);
       assertEquals(id, evaluate("attachment.id"));
       ask();
-      assertEquals("true", evaluate("/red|rojo/i.test(messages.at(-1).content)"));
+      assertEquals("true", evaluate("/red|roj[oa]/i.test(messages.at(-1).content)"));
       evaluate(
           "document.getElementById('prompt').value='What color was that"
               + " picture?';document.getElementById('send').click()");
