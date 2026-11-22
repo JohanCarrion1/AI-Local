@@ -9,6 +9,7 @@
 #include <fstream>
 #include <algorithm>
 #include "ggml-backend.h"
+#include "gguf.h"
 #if defined(__linux__)
 #include <sched.h>
 #endif
@@ -129,8 +130,29 @@ extern "C" JNIEXPORT void JNICALL Java_com_ailocal_app_Engine_loadConfigured(JNI
         vp.n_threads=thread_count; vp.image_min_tokens=64;
         vp.image_max_tokens=std::max(128,std::min(512,(int)imageBudget));
         auto usage=mtmd_get_memory_usage(projector_file.c_str(),vp);
-        if(usage.image_max_tokens<0) { Java_com_ailocal_app_Engine_unload(e,c); fail(e,"No se pudo leer el proyector visual del modelo."); return; }
-        if(usage.use_non_causal) image_batch=std::max(64,usage.image_max_tokens);
+        // -1 means fixed resolution for Gemma/MiniCPM, not an invalid file.
+        if(usage.backend_mem_usage.empty()) { Java_com_ailocal_app_Engine_unload(e,c); fail(e,"No se pudo leer el proyector visual del modelo."); return; }
+        if(usage.use_non_causal) {
+            int tokens=usage.image_max_tokens;
+            if(tokens<0) {
+                auto meta=gguf_init_from_file(projector_file.c_str(),{true,nullptr});
+                if(meta) {
+                    auto type=gguf_find_key(meta,"clip.projector_type");
+                    auto number=[&](const char * key,int fallback) {
+                        auto i=gguf_find_key(meta,key);
+                        return i>=0 && gguf_get_kv_type(meta,i)==GGUF_TYPE_UINT32 ? (int)gguf_get_val_u32(meta,i) : fallback;
+                    };
+                    if(type>=0 && gguf_get_kv_type(meta,type)==GGUF_TYPE_STRING && std::string(gguf_get_val_str(meta,type))=="gemma3") {
+                        int side=number("clip.vision.image_size",0), patch=number("clip.vision.patch_size",0);
+                        int scale=number("clip.vision.projector.scale_factor",4);
+                        if(side>0 && side<=8192 && patch>0 && scale>0) { int cells=side/patch/scale; tokens=cells*cells; }
+                    }
+                    gguf_free(meta);
+                }
+            }
+            if(tokens<=0) { Java_com_ailocal_app_Engine_unload(e,c); fail(e,"No se pudo determinar el bloque visual completo de este proyector."); return; }
+            image_batch=std::max(64,tokens);
+        }
         if(image_batch>1024) { Java_com_ailocal_app_Engine_unload(e,c); fail(e,"El formato de imagen requiere un bloque demasiado grande para este perfil móvil."); return; }
     }
     auto cp=llama_context_default_params(); cp.n_ctx=std::max(512,std::min(4096,(int)context)); cp.n_batch=128; cp.n_ubatch=64; cp.type_k=GGML_TYPE_Q8_0; cp.type_v=GGML_TYPE_F16; cp.n_threads=thread_count; cp.n_threads_batch=thread_count;
