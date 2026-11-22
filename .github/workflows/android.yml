@@ -119,10 +119,14 @@ jobs:
           path: android/app/build/reports/androidTests/
           if-no-files-found: ignore
 
-  arm64-vision-7b:
+  arm64-mobile-models:
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 35
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        model: [qwenvl3, qwen3vl4, minicpm4, gemma3-4, qwen3-instruct4]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -137,22 +141,26 @@ jobs:
           cmake -S android/tests/native -B build/native -DCMAKE_BUILD_TYPE=Release
           cmake --build build/native -j 4
           mkdir -p build/classes
-          javac -d build/classes android/app/src/main/java/com/ailocal/app/Engine.java android/tests/native/VisionRegression.java android/tests/native/CacheRegression.java
-      - name: Download the actual 7B vision model
-        run: python3 android/tests/download_fixtures.py "$RUNNER_TEMP/auren-fixtures" qwenvl7
-      - name: Verify real 7B pixels and visual prefix reuse on ARM64
+          javac -d build/classes android/app/src/main/java/com/ailocal/app/Engine.java android/tests/native/VisionRegression.java android/tests/native/CodeRegression.java
+      - name: Download verified full mobile model
+        run: python3 android/tests/download_fixtures.py "$RUNNER_TEMP/auren-fixtures" "${{ matrix.model }}"
+      - name: Verify actual vision pixels or generated code on ARM64
         env:
           LD_LIBRARY_PATH: ${{ github.workspace }}/build/native/bin
+          MODEL: ${{ matrix.model }}
         run: |
           set -o pipefail
-          java -Djava.library.path=build/native/bin -cp build/classes com.ailocal.app.VisionRegression "$RUNNER_TEMP/auren-fixtures/qwenvl7-0.gguf" "$RUNNER_TEMP/auren-fixtures/qwenvl7-1.gguf" "$PWD/build/native/bin" 2>&1 | tee arm64-7b-vision.log
-      - name: Verify full 7B text KV reuse and invalidation
-        env:
-          LD_LIBRARY_PATH: ${{ github.workspace }}/build/native/bin
-        run: java -Djava.library.path=build/native/bin -cp build/classes com.ailocal.app.CacheRegression "$RUNNER_TEMP/auren-fixtures/qwenvl7-0.gguf" "$PWD/build/native/bin"
+          if [ "$MODEL" = qwen3-instruct4 ]; then
+            java -Djava.library.path=build/native/bin -cp build/classes com.ailocal.app.CodeRegression "$RUNNER_TEMP/auren-fixtures/$MODEL-0.gguf" "$PWD/build/native/bin" generated.py 2>&1 | tee "$MODEL.log"
+            python3 android/tests/validate_generated_code.py generated.py
+          else
+            java -Djava.library.path=build/native/bin -cp build/classes com.ailocal.app.VisionRegression "$RUNNER_TEMP/auren-fixtures/$MODEL-0.gguf" "$RUNNER_TEMP/auren-fixtures/$MODEL-1.gguf" "$PWD/build/native/bin" 2>&1 | tee "$MODEL.log"
+          fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: arm64-7b-vision-results
-          path: arm64-7b-vision.log
+          name: mobile-${{ matrix.model }}-results
+          path: |
+            ${{ matrix.model }}.log
+            generated.py
           if-no-files-found: ignore

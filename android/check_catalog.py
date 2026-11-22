@@ -5,7 +5,12 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 models = json.loads((Path(__file__).parent / 'app/src/main/assets/models.json').read_text())
-assert len(models) >= 15
+assert len(models) >= 32
+mobile = [m for m in models if 3 <= m['parameters'] <= 6]
+assert len(mobile) >= 11
+assert sum(m['vision'] for m in mobile) >= 4
+assert sum(m['kind'] == 'code' for m in mobile) >= 5
+local_files = {}
 assert sum(m['parameters'] >= 5 for m in models) > 10
 assert len({m['id'] for m in models}) == len(models)
 for model in models:
@@ -24,4 +29,7 @@ for model in models:
         assert asset['file'].endswith('.gguf') and '/' not in asset['file']
         assert re.fullmatch(r'[0-9a-f]{64}', asset['sha256'])
         assert asset['size'] > 1_000_000
+        identity = (asset['sha256'], asset['size'])
+        assert local_files.setdefault(asset['file'], identity) == identity, 'Conflicting local filenames'
+    assert set(model.get('skills', [])) <= {'code', 'reasoning', 'chat', 'vision'}
 print(f'{len(models)} pinned models validated')

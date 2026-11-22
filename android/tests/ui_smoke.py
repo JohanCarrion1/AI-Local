@@ -105,7 +105,15 @@ with sync_playwright() as p:
 
     # Existing model catalog and realistic resource estimates remain functional.
     navigate(page,'library')
-    assert page.locator('#models article').count()==sum(m['parameters']>=5 for m in models)>10
+    assert page.locator('#models article').count()==sum(3<=m['parameters']<=6 for m in models)>=11
+    assert page.locator('[data-model="qwen3"]').is_visible(), 'The existing Coder 3B must no longer be hidden'
+    assert page.locator('[data-model="qwenvl3"]').is_visible()
+    assert page.locator('[data-model="qwen3vl4"]').is_visible()
+    assert not page.locator('[data-model="qwen7"]').count()
+    page.locator('[data-filter="code"]').click()
+    assert page.locator('[data-model="qwen3-instruct4"]').is_visible()
+    assert page.locator('[data-model="qwen3-4"]').is_visible(), 'Code-capable reasoning models are included'
+    page.locator('[data-filter="all"]').click()
     page.locator('#modelSearch').fill('Llama')
     assert page.locator('#models article').count()>=2
     page.locator('#modelSearch').fill('')
@@ -218,6 +226,7 @@ with sync_playwright() as p:
     assert not recovery.locator('.operation-error').count()
     assert not recovery.locator('#chatHint').is_visible()
     navigate(recovery,'library')
+    recovery.locator('[data-filter="all"]').click()
     recovery.locator('[data-model="qwen7"] button').filter(has_text='Eliminar del teléfono').click()
     recovery.locator('#confirmYes').click()
     assert recovery.evaluate('running && operationKind === "delete"')
