@@ -38,7 +38,8 @@ public class ExporterTest {
 
   @Test
   public void htmlEscapesUntrustedContent() throws Exception {
-    String out = text(Exporter.export("<script>alert(1)</script> [x](javascript:alert(1))", "html"));
+    String out =
+        text(Exporter.export("<script>alert(1)</script> [x](javascript:alert(1))", "html"));
     assertFalse(out.contains("<script>alert"));
     assertTrue(out.contains("&lt;script&gt;"));
     assertFalse(out.contains("href=\"javascript"));
@@ -111,7 +112,8 @@ public class ExporterTest {
   public void fileNamesAreSafe() {
     assertEquals("a b c.pdf", Exporter.safeName("a/b:c", "pdf"));
     assertEquals("respuesta-auren.md", Exporter.safeName("  ", "md"));
-    assertTrue(Exporter.safeName(new String(new char[200]).replace('\0', 'x'), "txt").length() <= 64);
+    assertTrue(
+        Exporter.safeName(new String(new char[200]).replace('\0', 'x'), "txt").length() <= 64);
   }
 
   @Test(expected = IllegalArgumentException.class)

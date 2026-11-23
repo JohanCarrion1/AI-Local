@@ -501,7 +501,10 @@ function splitThinking(text) {
   const close = text.indexOf("</think>");
   if (close >= 0)
     return {
-      thinking: text.slice(0, close).replace(/^\s*<think>\s*/, "").trim(),
+      thinking: text
+        .slice(0, close)
+        .replace(/^\s*<think>\s*/, "")
+        .trim(),
       answer: text.slice(close + 8).replace(/^\s+/, ""),
       open: false,
     };
@@ -635,7 +638,8 @@ function renderChat(streamOnly = false) {
       }
       const b = el("div", "bubble " + m.role);
       b.append(el("small", "", m.role === "user" ? "Tú" : "Auren"));
-      if (m.role === "assistant" && m.thinking) b.append(thinkingBlock(m.thinking));
+      if (m.role === "assistant" && m.thinking)
+        b.append(thinkingBlock(m.thinking));
       b.append(
         m.role === "assistant"
           ? messageContent(m.content)
@@ -887,6 +891,8 @@ $("send").onclick = () => {
   const m = state.models.find((m) => m.id === state.active);
   if (attachment && !m?.vision)
     return toast("Elige un modelo de visión para interpretar imágenes.", true);
+  continuationRounds = 0;
+  autoContinue = false;
   conversationModel = state.active;
   messages.push({
     role: "user",
@@ -1187,7 +1193,9 @@ function renderModels() {
     top.append(icon, title);
     card.append(top);
     if (m.id === recommendedId)
-      card.append(el("p", "recommended-badge", "★ Recomendado para tu teléfono"));
+      card.append(
+        el("p", "recommended-badge", "★ Recomendado para tu teléfono"),
+      );
     card.append(el("p", "", m.description));
     const info = el("details", "model-details");
     info.append(el("summary", "", "Memoria y compatibilidad"));

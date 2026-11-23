@@ -100,9 +100,10 @@ final class Exporter {
         out.add(new Block("h" + level, inline(t.substring(t.indexOf(' ') + 1))));
       } else if (t.matches("([-*+]|\\d+[.)]) .*")) {
         flush(out, paragraph);
-        String marker = t.startsWith("-") || t.startsWith("*") || t.startsWith("+")
-            ? "• "
-            : t.substring(0, t.indexOf(' ') + 1);
+        String marker =
+            t.startsWith("-") || t.startsWith("*") || t.startsWith("+")
+                ? "• "
+                : t.substring(0, t.indexOf(' ') + 1);
         out.add(new Block("li", marker + inline(t.substring(t.indexOf(' ') + 1))));
       } else {
         if (paragraph.length() > 0) paragraph.append(' ');
@@ -138,7 +139,10 @@ final class Exporter {
   // ---------- html ----------
 
   static String esc(String s) {
-    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
+    return s.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("\"", "&quot;");
   }
 
   private static String inlineHtml(String raw) {
@@ -190,9 +194,13 @@ final class Exporter {
       } else if (t.matches("#{1,6} .*")) {
         closeParagraph(b, paragraph);
         int level = t.indexOf(' ');
-        b.append("<h").append(level).append('>')
+        b.append("<h")
+            .append(level)
+            .append('>')
             .append(inlineHtml(t.substring(level + 1)))
-            .append("</h").append(level).append(">\n");
+            .append("</h")
+            .append(level)
+            .append(">\n");
       } else if (item) {
         closeParagraph(b, paragraph);
         if (!list) {
@@ -253,48 +261,64 @@ final class Exporter {
           break;
         case "code":
           style = "<w:spacing w:after=\"0\"/>";
-          run = "<w:rPr><w:rFonts w:ascii=\"Courier New\" w:hAnsi=\"Courier New\"/>"
-              + "<w:sz w:val=\"20\"/></w:rPr>";
+          run =
+              "<w:rPr><w:rFonts w:ascii=\"Courier New\" w:hAnsi=\"Courier New\"/>"
+                  + "<w:sz w:val=\"20\"/></w:rPr>";
           break;
         default:
       }
-      body.append("<w:p><w:pPr>").append(style).append("</w:pPr><w:r>").append(run)
-          .append("<w:t xml:space=\"preserve\">").append(xml(block.text)).append("</w:t></w:r></w:p>");
+      body.append("<w:p><w:pPr>")
+          .append(style)
+          .append("</w:pPr><w:r>")
+          .append(run)
+          .append("<w:t xml:space=\"preserve\">")
+          .append(xml(block.text))
+          .append("</w:t></w:r></w:p>");
     }
     String ns = "xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"";
     String document =
-        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><w:document " + ns
-            + "><w:body>" + body + "<w:sectPr><w:pgSz w:w=\"11906\" w:h=\"16838\"/>"
-            + "<w:pgMar w:top=\"1134\" w:right=\"1134\" w:bottom=\"1134\" w:left=\"1134\""
-            + " w:header=\"708\" w:footer=\"708\" w:gutter=\"0\"/></w:sectPr></w:body></w:document>";
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><w:document "
+            + ns
+            + "><w:body>"
+            + body
+            + "<w:sectPr><w:pgSz w:w=\"11906\" w:h=\"16838\"/><w:pgMar w:top=\"1134\""
+            + " w:right=\"1134\" w:bottom=\"1134\" w:left=\"1134\" w:header=\"708\""
+            + " w:footer=\"708\" w:gutter=\"0\"/></w:sectPr></w:body></w:document>";
     String styles =
-        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><w:styles " + ns + ">"
-            + "<w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii=\"Calibri\" w:hAnsi=\"Calibri\"/>"
-            + "<w:sz w:val=\"22\"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr>"
-            + "<w:spacing w:after=\"120\" w:line=\"276\" w:lineRule=\"auto\"/></w:pPr></w:pPrDefault>"
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><w:styles "
+            + ns
+            + "><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii=\"Calibri\""
+            + " w:hAnsi=\"Calibri\"/><w:sz"
+            + " w:val=\"22\"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing"
+            + " w:after=\"120\" w:line=\"276\" w:lineRule=\"auto\"/></w:pPr></w:pPrDefault>"
             + "</w:docDefaults>"
             + heading("Heading1", "heading 1", 36)
             + heading("Heading2", "heading 2", 30)
             + heading("Heading3", "heading 3", 26)
             + "</w:styles>";
     String types =
-        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"
-            + "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">"
-            + "<Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/>"
-            + "<Default Extension=\"xml\" ContentType=\"application/xml\"/>"
-            + "<Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>"
-            + "<Override PartName=\"/word/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml\"/>"
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><Types"
+            + " xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Default"
+            + " Extension=\"rels\""
+            + " ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/><Default"
+            + " Extension=\"xml\" ContentType=\"application/xml\"/><Override"
+            + " PartName=\"/word/document.xml\""
+            + " ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/><Override"
+            + " PartName=\"/word/styles.xml\""
+            + " ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml\"/>"
             + "</Types>";
     String rels =
-        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"
-            + "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">"
-            + "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"word/document.xml\"/>"
-            + "</Relationships>";
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><Relationships"
+            + " xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship"
+            + " Id=\"rId1\""
+            + " Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\""
+            + " Target=\"word/document.xml\"/></Relationships>";
     String docRels =
-        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"
-            + "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">"
-            + "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles\" Target=\"styles.xml\"/>"
-            + "</Relationships>";
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><Relationships"
+            + " xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship"
+            + " Id=\"rId1\""
+            + " Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles\""
+            + " Target=\"styles.xml\"/></Relationships>";
     ByteArrayOutputStream bytes = new ByteArrayOutputStream();
     try (ZipOutputStream zip = new ZipOutputStream(bytes)) {
       put(zip, "[Content_Types].xml", types);
@@ -307,9 +331,14 @@ final class Exporter {
   }
 
   private static String heading(String id, String name, int size) {
-    return "<w:style w:type=\"paragraph\" w:styleId=\"" + id + "\"><w:name w:val=\"" + name
+    return "<w:style w:type=\"paragraph\" w:styleId=\""
+        + id
+        + "\"><w:name w:val=\""
+        + name
         + "\"/><w:pPr><w:keepNext/><w:spacing w:before=\"240\" w:after=\"120\"/></w:pPr>"
-        + "<w:rPr><w:b/><w:sz w:val=\"" + size + "\"/></w:rPr></w:style>";
+        + "<w:rPr><w:b/><w:sz w:val=\""
+        + size
+        + "\"/></w:rPr></w:style>";
   }
 
   private static void put(ZipOutputStream zip, String name, String content) throws IOException {
@@ -358,16 +387,32 @@ final class Exporter {
       double lead = 15, before = 4;
       switch (block.kind) {
         case "h1":
-          font = "F2"; size = 18; chars = 52; lead = 24; before = 12;
+          font = "F2";
+          size = 18;
+          chars = 52;
+          lead = 24;
+          before = 12;
           break;
         case "h2":
-          font = "F2"; size = 15; chars = 62; lead = 20; before = 10;
+          font = "F2";
+          size = 15;
+          chars = 62;
+          lead = 20;
+          before = 10;
           break;
         case "h3":
-          font = "F2"; size = 12; chars = 76; lead = 17; before = 8;
+          font = "F2";
+          size = 12;
+          chars = 76;
+          lead = 17;
+          before = 8;
           break;
         case "code":
-          font = "F3"; size = 9; chars = 92; lead = 12; before = 0;
+          font = "F3";
+          size = 9;
+          chars = 92;
+          lead = 12;
+          before = 0;
           break;
         default:
       }
@@ -378,9 +423,17 @@ final class Exporter {
           y = PAGE_H - MARGIN;
         }
         y -= lead;
-        page.append("BT /").append(font).append(' ').append(size).append(" Tf ")
-            .append(MARGIN).append(' ').append(String.format(java.util.Locale.ROOT, "%.1f", y))
-            .append(" Td ").append(pdfString(line)).append(" Tj ET\n");
+        page.append("BT /")
+            .append(font)
+            .append(' ')
+            .append(size)
+            .append(" Tf ")
+            .append(MARGIN)
+            .append(' ')
+            .append(String.format(java.util.Locale.ROOT, "%.1f", y))
+            .append(" Td ")
+            .append(pdfString(line))
+            .append(" Tj ET\n");
       }
       y -= before;
     }
@@ -392,33 +445,48 @@ final class Exporter {
     StringBuilder kids = new StringBuilder();
     for (int i = 0; i < pages.size(); i++) kids.append(6 + i * 2).append(" 0 R ");
     objects.add("<< /Type /Pages /Kids [" + kids + "] /Count " + pages.size() + " >>");
-    objects.add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>");
-    objects.add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>");
+    objects.add(
+        "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>");
+    objects.add(
+        "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>");
     objects.add("<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>");
     for (int i = 0; i < pages.size(); i++) {
       int content = 7 + i * 2;
       objects.add(
-          "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 " + PAGE_W + " " + PAGE_H
+          "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 "
+              + PAGE_W
+              + " "
+              + PAGE_H
               + "] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> /Contents "
-              + content + " 0 R >>");
+              + content
+              + " 0 R >>");
       byte[] stream = pages.get(i).toString().getBytes(StandardCharsets.ISO_8859_1);
-      objects.add("<< /Length " + stream.length + " >>\nstream\n"
-          + new String(stream, StandardCharsets.ISO_8859_1) + "endstream");
+      objects.add(
+          "<< /Length "
+              + stream.length
+              + " >>\nstream\n"
+              + new String(stream, StandardCharsets.ISO_8859_1)
+              + "endstream");
     }
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     List<Integer> offsets = new ArrayList<>();
     out.write("%PDF-1.4\n".getBytes(StandardCharsets.ISO_8859_1));
     for (int i = 0; i < objects.size(); i++) {
       offsets.add(out.size());
-      out.write(((i + 1) + " 0 obj\n" + objects.get(i) + "\nendobj\n")
-          .getBytes(StandardCharsets.ISO_8859_1));
+      out.write(
+          ((i + 1) + " 0 obj\n" + objects.get(i) + "\nendobj\n")
+              .getBytes(StandardCharsets.ISO_8859_1));
     }
     int xref = out.size();
     StringBuilder table = new StringBuilder("xref\n0 " + (objects.size() + 1) + "\n");
     table.append("0000000000 65535 f \n");
     for (int offset : offsets) table.append(String.format("%010d 00000 n \n", offset));
-    table.append("trailer\n<< /Size ").append(objects.size() + 1)
-        .append(" /Root 1 0 R >>\nstartxref\n").append(xref).append("\n%%EOF\n");
+    table
+        .append("trailer\n<< /Size ")
+        .append(objects.size() + 1)
+        .append(" /Root 1 0 R >>\nstartxref\n")
+        .append(xref)
+        .append("\n%%EOF\n");
     out.write(table.toString().getBytes(StandardCharsets.ISO_8859_1));
     return out.toByteArray();
   }

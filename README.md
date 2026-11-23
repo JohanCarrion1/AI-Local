@@ -1,16 +1,16 @@
-# Auren · Android 2.8.1
+# Auren · Android 2.9.0
 
-Auren es el nuevo nombre de AI Local. Mantiene `com.ailocal.app`, la firma de actualización, los modelos descargados, el historial y los ajustes. Su icono es el emblema elegido por el usuario: tres formas curvas en coral, naranja y dorado sobre fondo espresso, sin letras y centrado en el área segura del launcher. Incluye recursos adaptativos y una variante monocroma para iconos temáticos y notificaciones.
+Auren es el nuevo nombre de AI Local. Mantiene `com.ailocal.app`, la firma de actualización, los modelos descargados, el historial y los ajustes. Su icono es el de la rama `feat/todo-junto`, seleccionado para esta compilación: una A con órbita en bronce sobre grafito. Incluye recursos adaptativos y una variante monocroma para iconos temáticos y notificaciones.
 
 Asistente Android con inferencia **dentro de la aplicación**, sin Termux, Python, Ollama ni servidores. La nueva app nativa se encuentra en `android/`; el prototipo Python se conserva para escritorio.
 
 ## Instalar
 
-**[Descargar Auren-2.8.1.apk directamente](https://github.com/JohanCarrion1/AI-Local/releases/download/v2.8.1/Auren-2.8.1.apk)**
+**[Descargar Auren-2.9.0.apk directamente](https://github.com/JohanCarrion1/AI-Local/releases/download/v2.9.0/Auren-2.9.0.apk)**
 
-Abre ese archivo `.apk` en un teléfono **Android 8+ de 64 bits (ARM64)** e instálalo sobre la versión anterior. No hace falta descomprimirlo. Android debe identificarlo como **Auren 2.8.1**.
+Abre ese archivo `.apk` en un teléfono **Android 8+ de 64 bits (ARM64)** e instálalo sobre la versión anterior. No hace falta descomprimirlo. Android debe identificarlo como **Auren 2.9.0**.
 
-El antiguo `ai-local-hub-package.zip` contiene el proyecto Python de escritorio y no se instala en Android. Las siguientes compilaciones de ese proyecto se llaman `desktop-python-source-not-an-apk`. Para otras ramas de la app Android, usa **Actions → Android APK Build → ai-local-android-arm64** y extrae el APK de ese artefacto.
+El antiguo `ai-local-hub-package.zip` contiene el proyecto Python de escritorio y no se instala en Android. El flujo de escritorio se retiró de Actions para evitar descargas equivocadas. Para otras ramas de la app Android, usa **Actions → Android APK Build → Auren-VERSIÓN-Android-APK** y extrae el archivo Auren-VERSIÓN.apk de ese artefacto.
 
 Desde 2.1 se usa una clave debug pública y estable para que las siguientes actualizaciones mantengan la firma. Las versiones 2.0 anteriores usaban claves generadas en cada runner: Android puede exigir desinstalarlas antes de instalar 2.1, lo que elimina sus datos y modelos locales. Una publicación de producción debe usar una clave privada diferente. El paquete es `com.ailocal.app`; no reemplaza automáticamente el antiguo prototipo Kivy.
 
@@ -45,7 +45,7 @@ La lectura de imágenes utiliza selección determinista de tokens para evitar va
 5. Para fotos, carga un modelo de **Visión** (SmolVLM 500M o Qwen2.5-VL 7B si hay recursos), pulsa Imagen y selecciona una imagen con el selector de Android. Qwen Coder admite texto, no imágenes. Espera la miniatura con nombre y dimensiones antes de enviar. La foto se corrige por orientación EXIF y se reduce a un máximo de 1024 píxeles. Las copias privadas sobreviven al cambio de pantalla y permiten preguntar de nuevo por la última foto del chat; se conservan hasta 24 fotos y después se eliminan las más antiguas. Si falta el archivo se solicita adjuntarlo de nuevo, sin enviar silenciosamente un turno sin imagen. Borrar todo el historial elimina esas copias.
 6. Menú → Conectar a GitHub: conecta un token de acceso personal, selecciona un repositorio y rama, abre una carpeta o archivo, edita el texto y revisa antes de guardar un commit. Puedes llevar el archivo al chat para pedir una revisión y copiar una respuesta al editor; revisa el resultado antes del commit. Si el archivo cambió remotamente, recárgalo: no se sobrescriben conflictos silenciosamente. No se ejecutan comandos del modelo ni se publican sus respuestas automáticamente. Pulsa Desconectar para borrar el token.
 
-## Catálogo de descarga (31 opciones; 10 de 3B a 6B)
+## Catálogo de descarga (37 opciones)
 
 | Modelo | Cuantización | Descarga aprox. | Entrada |
 |---|---|---:|---|

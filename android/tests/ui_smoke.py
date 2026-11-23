@@ -331,6 +331,10 @@ with sync_playwright() as p:
     assert auto.locator('.message-code').count()==1, 'One uninterrupted code block'
     code=auto.locator('.message-code code').inner_text()
     assert code=='def a():\n    if x_precio > 0:\n        return 1', code
+    auto.get_by_role('button',name='Guardar como…',exact=True).click()
+    auto.get_by_role('button',name='.pdf',exact=True).click()
+    assert auto.evaluate('calls.at(-1)[0]')=='export'
+    assert 'def a()' in auto.evaluate('calls.at(-1)[1].content')
     assert not auto.locator('.continue-answer').count()
     assert auto.evaluate('calls.filter(c=>c[0]==="chat").length')==2
 

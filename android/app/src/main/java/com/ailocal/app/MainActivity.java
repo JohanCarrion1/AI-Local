@@ -58,7 +58,7 @@ public class MainActivity extends Activity {
         }
       };
   private boolean destroyed = false;
-  private boolean rendererLost = false;
+  private boolean rendererLost = false, rendererRecovering = false;
   // Static so a crash loop is still detected across the recreated Activity instance.
   private static long lastRendererRecovery = -1;
   private String interruptedLoad = "";
@@ -91,7 +91,11 @@ public class MainActivity extends Activity {
   @Override
   public void onCreate(Bundle state) {
     super.onCreate(state);
-    if (state != null) pickerSessionId = state.getString("pickerSessionId", "");
+    if (state != null) {
+      pickerSessionId = state.getString("pickerSessionId", "");
+      exportContent = state.getString("exportContent");
+      exportFormat = state.getString("exportFormat", "");
+    }
     prefs = getSharedPreferences("local", MODE_PRIVATE);
     dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
     recoverInterruptedLoad();
@@ -201,7 +205,7 @@ public class MainActivity extends Activity {
               + ")";
       runOnUiThread(
           () -> {
-            if (!destroyed) web.evaluateJavascript(js, null);
+            if (!destroyed && !rendererLost) web.evaluateJavascript(js, null);
           });
     } catch (Exception ignored) {
     }
@@ -571,7 +575,8 @@ public class MainActivity extends Activity {
                 JSONObject request = new JSONObject(payload);
                 String format = request.getString("format");
                 String content = request.getString("content");
-                if (content.trim().isEmpty()) throw new IllegalArgumentException("La respuesta está vacía.");
+                if (content.trim().isEmpty())
+                  throw new IllegalArgumentException("La respuesta está vacía.");
                 exportContent = content;
                 exportFormat = format;
                 startActivityForResult(
@@ -853,6 +858,8 @@ public class MainActivity extends Activity {
   @Override
   protected void onSaveInstanceState(Bundle out) {
     out.putString("pickerSessionId", pickerSessionId);
+    out.putString("exportContent", exportContent);
+    out.putString("exportFormat", exportFormat);
     super.onSaveInstanceState(out);
   }
 
@@ -868,6 +875,10 @@ public class MainActivity extends Activity {
   @Override
   public void onBackPressed() {
     if (destroyed) return;
+    if (rendererLost) {
+      recoverWebView();
+      return;
+    }
     web.evaluateJavascript(
         "typeof window.handleBack === 'function' && window.handleBack()",
         handled -> {
@@ -882,8 +893,8 @@ public class MainActivity extends Activity {
 
   /** Rebuilds the UI after the WebView renderer was killed; the model and any job keep running. */
   private void recoverWebView() {
-    if (destroyed || !rendererLost) return;
-    rendererLost = false;
+    if (destroyed || !rendererLost || rendererRecovering) return;
+    rendererRecovering = true;
     long now = SystemClock.elapsedRealtime();
     boolean looping = lastRendererRecovery >= 0 && now - lastRendererRecovery < 10000;
     lastRendererRecovery = now;
@@ -896,13 +907,13 @@ public class MainActivity extends Activity {
   @Override
   protected void onResume() {
     super.onResume();
-    web.onResume();
+    if (!rendererLost) web.onResume();
     if (inferenceService != null) event("inference", inferenceService.snapshot());
   }
 
   @Override
   protected void onPause() {
-    web.onPause();
+    if (!rendererLost) web.onPause();
     super.onPause();
   }
 
@@ -934,6 +945,8 @@ public class MainActivity extends Activity {
     }
     inferenceService = null;
     io.shutdown();
+    if (web.getParent() instanceof android.view.ViewGroup)
+      ((android.view.ViewGroup) web.getParent()).removeView(web);
     web.destroy();
     super.onDestroy();
   }
