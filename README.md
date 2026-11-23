@@ -1,16 +1,16 @@
-# Auren · Android 2.8.1
+# Auren · Android 2.9.0
 
-Auren es el nuevo nombre de AI Local. Mantiene `com.ailocal.app`, la firma de actualización, los modelos descargados, el historial y los ajustes. Su icono es el emblema elegido por el usuario: tres formas curvas en coral, naranja y dorado sobre fondo espresso, sin letras y centrado en el área segura del launcher. Incluye recursos adaptativos y una variante monocroma para iconos temáticos y notificaciones.
+Auren es el nuevo nombre de AI Local. Mantiene `com.ailocal.app`, la firma de actualización, los modelos descargados, el historial y los ajustes. Su icono es el de la rama `feat/todo-junto`, seleccionado para esta compilación: una A con órbita en bronce sobre grafito. Incluye recursos adaptativos y una variante monocroma para iconos temáticos y notificaciones.
 
 Asistente Android con inferencia **dentro de la aplicación**, sin Termux, Python, Ollama ni servidores. La nueva app nativa se encuentra en `android/`; el prototipo Python se conserva para escritorio.
 
 ## Instalar
 
-**[Descargar Auren-2.8.1.apk directamente](https://github.com/JohanCarrion1/AI-Local/releases/download/v2.8.1/Auren-2.8.1.apk)**
+**[Descargar Auren-2.9.0.apk directamente](https://github.com/JohanCarrion1/AI-Local/releases/download/v2.9.0/Auren-2.9.0.apk)**
 
-Abre ese archivo `.apk` en un teléfono **Android 8+ de 64 bits (ARM64)** e instálalo sobre la versión anterior. No hace falta descomprimirlo. Android debe identificarlo como **Auren 2.8.1**.
+Abre ese archivo `.apk` en un teléfono **Android 8+ de 64 bits (ARM64)** e instálalo sobre la versión anterior. No hace falta descomprimirlo. Android debe identificarlo como **Auren 2.9.0**.
 
-El antiguo `ai-local-hub-package.zip` contiene el proyecto Python de escritorio y no se instala en Android. Las siguientes compilaciones de ese proyecto se llaman `desktop-python-source-not-an-apk`. Para otras ramas de la app Android, usa **Actions → Android APK Build → ai-local-android-arm64** y extrae el APK de ese artefacto.
+El antiguo `ai-local-hub-package.zip` contiene el proyecto Python de escritorio y no se instala en Android. El flujo de escritorio se retiró de Actions para evitar descargas equivocadas. Para otras ramas de la app Android, usa **Actions → Android APK Build → Auren-VERSIÓN-Android-APK** y extrae el archivo Auren-VERSIÓN.apk de ese artefacto.
 
 Desde 2.1 se usa una clave debug pública y estable para que las siguientes actualizaciones mantengan la firma. Las versiones 2.0 anteriores usaban claves generadas en cada runner: Android puede exigir desinstalarlas antes de instalar 2.1, lo que elimina sus datos y modelos locales. Una publicación de producción debe usar una clave privada diferente. El paquete es `com.ailocal.app`; no reemplaza automáticamente el antiguo prototipo Kivy.
 
@@ -28,7 +28,7 @@ La carga muestra el progreso de los pesos y la preparación del contexto. Antes 
 
 El modelo y la generación pertenecen a `InferenceService`, independiente de la Activity y del WebView. Al cargar un modelo se inicia un servicio en primer plano de tipo `specialUse`, con notificación visible y acciones para volver, detener la generación o liberar el modelo de la RAM. Se solicita el permiso de notificaciones en Android 13+; denegarlo no impide la inferencia, aunque Android puede ocultar esa notificación del panel. El perfil también permite liberar la RAM sin borrar los archivos descargados.
 
-Cambiar de app, volver o recrear la pantalla reconecta al mismo trabajo. El servicio guarda periódicamente la respuesta en un archivo atómico privado y sincroniza el resultado por identificador de conversación y petición, sin duplicarlo. Un bloqueo parcial de CPU mantiene el cálculo con la pantalla apagada solo mientras hay una carga o respuesta activa, con liberación al terminar, fallar o detenerse. El modelo queda disponible sin mantener despierta la CPU cuando está inactivo. No se reinicia una carga de varios GB sin intervención del usuario después de un cierre de proceso. Android todavía puede finalizar la app por memoria insuficiente o por un cierre forzado; en ese caso se recupera el texto guardado y se ofrece reintentar.
+Cambiar de app, volver o recrear la pantalla reconecta al mismo trabajo. El servicio guarda periódicamente la respuesta en un archivo atómico privado y sincroniza el resultado por identificador de conversación y petición, sin duplicarlo. Un bloqueo parcial de CPU mantiene el cálculo con la pantalla apagada solo mientras hay una carga o respuesta activa, con liberación al terminar, fallar o detenerse. El modelo queda disponible sin mantener despierta la CPU cuando está inactivo. No se reinicia una carga de varios GB sin intervención del usuario después de un cierre de proceso. Si Android reclama el proceso del WebView (la pantalla) mientras estás en otra app, la interfaz se reconstruye sola al volver y se reconecta a la respuesta en curso; el modelo y el servicio no se detienen. Android todavía puede finalizar la app por memoria insuficiente o por un cierre forzado; en ese caso se recupera el texto guardado, se indica la causa que reporta Android (memoria baja, error interno o cierre desde Recientes) y se ofrece reintentar.
 
 Para reducir la espera entre turnos, el motor conserva la caché KV del prefijo exacto de tokens y procesa solo la parte nueva. Si cambian el historial, las instrucciones o el modelo se invalida la parte incompatible; en arquitecturas sin recorte parcial se vuelve al procesamiento completo. La caché visual se reutiliza solo si coinciden los píxeles, el tamaño y el prefijo de conversación; cambiar de foto obliga a codificarla de nuevo. La transmisión a pantalla se agrupa a un máximo de 20 actualizaciones por segundo, no se redibuja el WebView mientras está oculto y PSS se muestrea cada dos segundos. Se conservan los pesos completos y la cuantización elegida. El perfil permite respuestas directas o detalladas y visión ágil (256 tokens visuales) o detallada (512); más detalle visual consume más tiempo y memoria. Las ediciones Qwen3 con razonamiento reciben /no_think en modo directo para evitar razonamiento interno prolongado, y permite pensar en modo detallado.
 
@@ -45,7 +45,7 @@ La lectura de imágenes utiliza selección determinista de tokens para evitar va
 5. Para fotos, carga un modelo de **Visión** (SmolVLM 500M o Qwen2.5-VL 7B si hay recursos), pulsa Imagen y selecciona una imagen con el selector de Android. Qwen Coder admite texto, no imágenes. Espera la miniatura con nombre y dimensiones antes de enviar. La foto se corrige por orientación EXIF y se reduce a un máximo de 1024 píxeles. Las copias privadas sobreviven al cambio de pantalla y permiten preguntar de nuevo por la última foto del chat; se conservan hasta 24 fotos y después se eliminan las más antiguas. Si falta el archivo se solicita adjuntarlo de nuevo, sin enviar silenciosamente un turno sin imagen. Borrar todo el historial elimina esas copias.
 6. Menú → Conectar a GitHub: conecta un token de acceso personal, selecciona un repositorio y rama, abre una carpeta o archivo, edita el texto y revisa antes de guardar un commit. Puedes llevar el archivo al chat para pedir una revisión y copiar una respuesta al editor; revisa el resultado antes del commit. Si el archivo cambió remotamente, recárgalo: no se sobrescriben conflictos silenciosamente. No se ejecutan comandos del modelo ni se publican sus respuestas automáticamente. Pulsa Desconectar para borrar el token.
 
-## Catálogo de descarga (31 opciones; 10 de 3B a 6B)
+## Catálogo de descarga (37 opciones)
 
 | Modelo | Cuantización | Descarga aprox. | Entrada |
 |---|---|---:|---|
@@ -77,11 +77,14 @@ La lectura de imágenes utiliza selección determinista de tokens para evitar va
 | Qwen Coder · 7B | Q4_K_M | 4.68 GB | Texto |
 | Qwen Coder · 7B · compacto Q3 | Q3_K_M | 3.81 GB | Texto |
 | Qwen Coder · 7B Abliterated | Q4_K_M | 4.68 GB | Texto |
+| Qwen3 · 4B Abliterated (sin filtros) | Q4_K_M | 2.50 GB | Texto |
+| Dolphin 3.0 · Qwen2.5 3B (sin censura) | Q4_K_M | 1.93 GB | Texto |
+| Llama 3.2 · 3B Uncensored | Q4_K_M | 2.24 GB | Texto |
 | Qwen Coder · 0.5B | Q4_K_M | 0.49 GB | Texto |
 | Qwen Coder · 3B | Q4_K_M | 2.10 GB | Texto |
 | SmolVLM · 500M | Q8_0 | 0.55 GB | Texto + imagen |
 
-Las referencias y hashes se fijan en `android/app/src/main/assets/models.json`. Los modelos oficiales Qwen son de Qwen; la variante abliterated es comunitaria. Consulta licencias y fichas en los repositorios Hugging Face enlazados en el catálogo. La variante abliterated no mejora necesariamente la calidad. Las estimaciones de memoria no son garantías: el sistema operativo y otras apps consumen memoria. La vista inicial **Para tu celular · 3–6B** muestra 10 opciones: siete modelos/versiones y tres variantes adicionales Q5/Q6. Q5 y Q6 aumentan precisión de cuantización, tamaño y RAM; no son modelos con más parámetros. **Grandes · 7B+** mantiene los modelos mayores y Todos conserva el catálogo completo. El anterior filtro 5B+ ocultaba el Coder 3B; ahora queda visible desde el inicio. El buscador y los filtros separan código, razonamiento, conversación y visión. Las tarjetas distinguen margen suficiente, margen ajustado, posible necesidad de más RAM libre y tamaños superiores a la RAM física visible. Descargar no garantiza que un teléfono pueda cargar el modelo. El motor usa CPU, hasta 4 hilos, contexto inicial de texto 1024 (configurable hasta 4096) y un máximo configurable de respuesta hasta 2048 tokens, limitado por el contexto restante. En teléfonos básicos los modelos grandes pueden ser lentos o Android puede cerrar el proceso por falta de memoria.
+Las referencias y hashes se fijan en `android/app/src/main/assets/models.json`. Los modelos oficiales Qwen son de Qwen; la variante abliterated es comunitaria. Consulta licencias y fichas en los repositorios Hugging Face enlazados en el catálogo. La variante abliterated no mejora necesariamente la calidad. Las estimaciones de memoria no son garantías: el sistema operativo y otras apps consumen memoria. La vista inicial **Para tu celular · 2–6B** incluye los modelos ligeros nuevos, los modelos/versiones de 3B a 6B y variantes adicionales Q5/Q6. Q5 y Q6 aumentan precisión de cuantización, tamaño y RAM; no son modelos con más parámetros. **Grandes · 7B+** mantiene los modelos mayores y Todos conserva el catálogo completo. El anterior filtro 5B+ ocultaba el Coder 3B; ahora queda visible desde el inicio. El buscador y los filtros separan código, razonamiento, conversación y visión. Las tarjetas distinguen margen suficiente, margen ajustado, posible necesidad de más RAM libre y tamaños superiores a la RAM física visible. Descargar no garantiza que un teléfono pueda cargar el modelo. El motor usa CPU, hasta 4 hilos, contexto inicial de texto de 2048 (configurable hasta 4096), respuestas de hasta 4096 tokens y continuación automática acotada para respuestas más largas. En teléfonos básicos los modelos grandes pueden ser lentos o Android puede cerrar el proceso por falta de memoria.
 
 
 ## Recursos, estimación y prueba en el teléfono
@@ -157,3 +160,11 @@ Saludo compacto y centrado; paleta HSV táctil con controles accesibles de tono,
 La inferencia sigue en el servicio de primer plano con bloqueo de CPU durante la generación. La pantalla se vuelve a conectar al reanudarse, al recuperar foco y mediante un refresco ligero independiente de las descargas y GitHub. Solo se actualiza el bloque que se está escribiendo, evitando reconstruir el historial por cada fragmento. En Personalización → Segundo plano se pueden abrir los ajustes de batería del teléfono; se muestra si Android restringe el proceso.
 
 El motor informa si termina por EOS, cancelación, límite de respuesta o contexto. El contexto textual se desplaza cuando el modelo permite mover su KV: conserva el prefijo inicial y el texto más reciente en lugar de detener la generación al llenar la ventana. Cuando el historial excede la ventana se conservan su inicio y su tramo reciente; las referencias de archivos GitHub se mantienen completas y muestran un error si no caben; un mensaje nuevo demasiado grande sigue mostrando un error y puede requerir aumentar el contexto. Las imágenes y los modelos que no admiten desplazar KV conservan su límite de contexto. Una respuesta limitada por longitud ofrece Continuar; si se llena un contexto que no se puede desplazar, ofrece Ampliar contexto; no se presenta como una interrupción de Android. Las instalaciones nuevas usan un máximo de 1024 tokens; se respetan los ajustes guardados. Cerrar forzosamente el proceso o su eliminación por falta de memoria interrumpe la inferencia: se conserva la parte escrita y la opción de reintentar.
+
+## Respuestas largas
+
+El límite por respuesta sube a 2048 tokens por defecto (hasta 4096) y el contexto a 2048. Si una respuesta aún se corta por longitud, Auren continúa sola hasta 3 veces y une el texto en un único mensaje, de modo que el bloque de código no se parte. El botón "Continuar" sigue disponible si hace falta más.
+
+## Cambios integrados en la compilación 2.9
+
+Se reúne el catálogo ampliado, los modelos ligeros y las variantes comunitarias, la recomendación según los recursos del teléfono, la exportación de respuestas a PDF/DOCX/Markdown/HTML/TXT, la continuación automática de respuestas y la vista plegada del razonamiento. El icono usa la identidad de bronce de `feat/todo-junto`, seleccionada por el usuario.

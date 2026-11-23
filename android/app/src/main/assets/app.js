@@ -16,8 +16,8 @@ const defaultPrefs = {
   mode: "dark",
   defaultModel: "",
   autoLoad: false,
-  context: 1024,
-  response: 1024,
+  context: 2048,
+  response: 2048,
   instructions: "Eres un asistente útil. Responde en español con precisión.",
   showStats: false,
   imageTokens: 256,
@@ -28,8 +28,17 @@ if (!/^#[0-9a-f]{6}$/i.test(prefs.accent)) prefs.accent = defaultPrefs.accent;
 if (!["dark", "light", "system"].includes(prefs.mode)) prefs.mode = "dark";
 if (![512, 1024, 2048, 4096].includes(Number(prefs.context)))
   prefs.context = 1024;
-if (![256, 512, 1024, 2048].includes(Number(prefs.response)))
-  prefs.response = 512;
+if (![256, 512, 1024, 2048, 4096].includes(Number(prefs.response)))
+  prefs.response = 2048;
+// One-time raise of the old 1024/1024 defaults, which cut long code answers.
+if (!prefs.limitsV3) {
+  prefs.limitsV3 = true;
+  prefs.context = Math.max(Number(prefs.context) || 0, 2048);
+  prefs.response = Math.max(Number(prefs.response) || 0, 2048);
+  try {
+    localStorage.setItem("preferences.v1", JSON.stringify(prefs));
+  } catch (_) {}
+}
 prefs.name = String(prefs.name || "").slice(0, 40);
 prefs.instructions = String(
   prefs.instructions || defaultPrefs.instructions,
@@ -487,6 +496,35 @@ $("removeWorkspace").onclick = () => {
   }
 };
 $("createToken").onclick = () => command("tokenHelp");
+// Reasoning models write their thoughts between <think> and </think>; keep them out of the answer.
+function splitThinking(text) {
+  const close = text.indexOf("</think>");
+  if (close >= 0)
+    return {
+      thinking: text
+        .slice(0, close)
+        .replace(/^\s*<think>\s*/, "")
+        .trim(),
+      answer: text.slice(close + 8).replace(/^\s+/, ""),
+      open: false,
+    };
+  const head = text.trimStart();
+  if (head.startsWith("<think>"))
+    return { thinking: head.slice(7).trim(), answer: "", open: true };
+  if (head.length > 0 && head.length < 7 && "<think>".startsWith(head))
+    return { thinking: "", answer: "", open: true };
+  return { thinking: "", answer: text, open: false };
+}
+function streamText() {
+  const parts = splitThinking(answer);
+  if (parts.answer) return parts.answer;
+  return parts.open || parts.thinking ? "Pensando…" : answer || progressText();
+}
+function thinkingBlock(text) {
+  const box = el("details", "thinking");
+  box.append(el("summary", "", "Pensamiento"), el("div", "", text));
+  return box;
+}
 function messageContent(text) {
   const root = el("div", "message-text formatted");
   // Split fenced code without assigning model output to innerHTML.
@@ -516,23 +554,44 @@ function messageContent(text) {
   if (last < text.length) prose(text.slice(last));
   return root;
 }
-function continueAnswer() {
+let continuationRounds = 0,
+  autoContinue = false;
+function continueAnswer(auto = false) {
   if (running) return;
   if (!state.active) return openPicker();
+  const last = messages.at(-1);
+  const tail = last?.role === "assistant" ? last.content.slice(-200) : "";
+  continuationRounds = auto === true ? continuationRounds + 1 : 0;
   messages.push({
     role: "user",
+    hidden: true,
     content:
-      "Continúa exactamente desde donde terminaste, sin repetir el texto anterior. Completa la respuesta y el código pendiente.",
+      "Tu respuesta anterior se cortó y terminó con este fragmento:\n«" +
+      tail +
+      "»\nContinúa exactamente desde ahí, sin repetir lo ya escrito. Si estabas dentro de un bloque de código, sigue el código sin abrir un bloque nuevo y ciérralo al terminar.",
   });
   persist();
   startChat();
+}
+// Joins a continuation onto the answer it extends, so code blocks stay whole.
+function mergeContinuation(prev, next) {
+  let add = next.replace(/^\s*\n/, "");
+  const fences = (prev.match(/^\s*```/gm) || []).length;
+  if (fences % 2 === 1) add = add.replace(/^[ \t]*```[^\n]*\n/, "");
+  const cut = prev.lastIndexOf("\n"),
+    partial = prev.slice(cut + 1),
+    newline = add.indexOf("\n"),
+    first = newline < 0 ? add : add.slice(0, newline);
+  if (partial.trim() && first.trim().startsWith(partial.trim()))
+    return prev.slice(0, cut + 1) + partial.match(/^\s*/)[0] + add.trimStart();
+  return prev + add;
 }
 function renderChat(streamOnly = false) {
   const stream = $("messages").querySelector(".streaming");
   if (streamOnly && stream && running && operationKind === "chat") {
     const root = $("messages");
     const follow = root.scrollHeight - root.scrollTop - root.clientHeight < 100;
-    stream.textContent = answer || progressText();
+    stream.textContent = streamText();
     if (follow) root.scrollTop = root.scrollHeight;
     return;
   }
@@ -571,10 +630,17 @@ function renderChat(streamOnly = false) {
     root.append(welcome);
   } else {
     for (const m of messages) {
-      if (m.role === "system") continue;
+      if (m.role === "system" || m.hidden) continue;
+      if (m.role === "assistant" && /<\/think>|^\s*<think>/.test(m.content)) {
+        const parts = splitThinking(m.content);
+        m.thinking = parts.thinking;
+        m.content = parts.answer;
+      }
       const b = el("div", "bubble " + m.role);
+      b.append(el("small", "", m.role === "user" ? "Tú" : "Auren"));
+      if (m.role === "assistant" && m.thinking)
+        b.append(thinkingBlock(m.thinking));
       b.append(
-        el("small", "", m.role === "user" ? "Tú" : "Auren"),
         m.role === "assistant"
           ? messageContent(m.content)
           : el("div", "message-text", m.content),
@@ -623,7 +689,7 @@ function renderChat(streamOnly = false) {
                   $("contextTokens").focus();
                   toast("Elige un contexto mayor y vuelve a cargar el modelo.");
                 }
-              : continueAnswer;
+              : () => continueAnswer();
           actions.append(more);
           b.append(
             el(
@@ -635,6 +701,28 @@ function renderChat(streamOnly = false) {
             ),
           );
         }
+        const save = el("button", "quiet", "Guardar como…");
+        save.onclick = () => {
+          const formats = el("span", "export-formats");
+          const title =
+            (m.content.match(/^#{1,3} +(.+)$/m) || [])[1] ||
+            m.content.split("\n").find((l) => l.trim()) ||
+            "";
+          for (const f of ["pdf", "docx", "md", "html", "txt"]) {
+            const choice = el("button", "quiet", "." + f);
+            choice.onclick = () => {
+              command("export", {
+                format: f,
+                content: m.content,
+                title: title.replace(/[#*`]/g, "").trim().slice(0, 60),
+              });
+              formats.replaceWith(save);
+            };
+            formats.append(choice);
+          }
+          save.replaceWith(formats);
+        };
+        actions.append(save);
         if ((opened && fileSha) || m.workspace) {
           const edit = el("button", "quiet to-github", "Llevar a GitHub ↗");
           edit.onclick = () => {
@@ -684,7 +772,7 @@ function renderChat(streamOnly = false) {
       const b = el("div", "bubble assistant");
       b.append(
         el("small", "", "Auren"),
-        el("div", "message-text streaming", answer || progressText()),
+        el("div", "message-text streaming", streamText()),
       );
       root.append(b);
     }
@@ -803,6 +891,8 @@ $("send").onclick = () => {
   const m = state.models.find((m) => m.id === state.active);
   if (attachment && !m?.vision)
     return toast("Elige un modelo de visión para interpretar imágenes.", true);
+  continuationRounds = 0;
+  autoContinue = false;
   conversationModel = state.active;
   messages.push({
     role: "user",
@@ -843,7 +933,7 @@ function startChat() {
     imageId: latestPhoto?.id || undefined,
     expectsImage: !!latestPhoto,
     responseStyle: prefs.responseStyle === "detailed" ? "detailed" : "direct",
-    maxTokens: Number($("responseTokens").value) || 1024,
+    maxTokens: Number($("responseTokens").value) || 2048,
     messages: [
       {
         role: "system",
@@ -1000,6 +1090,19 @@ function assessModel(model, device = state) {
     estimate,
   };
 }
+// Largest general-purpose model that leaves at least ~55% of physical RAM to Android and
+// other apps. Keeping it modest favours speed over raw size on phones.
+function recommendedModelId() {
+  if (!Number.isFinite(state.ram)) return null;
+  let best = null;
+  for (const m of state.models || []) {
+    if (m.kind === "reasoning") continue;
+    const a = assessModel(m);
+    if (a.level !== "fit" || a.estimate.upper > state.ram * 0.45) continue;
+    if (!best || m.parameters > best.parameters) best = m;
+  }
+  return best ? best.id : null;
+}
 $("contextTokens").onchange = () => {
   prefs.context = Number($("contextTokens").value);
   savePrefs();
@@ -1011,7 +1114,7 @@ function visibleModels() {
   return state.models.filter(
     (m) =>
       (filter === "all" ||
-        (filter === "mobile" && m.parameters >= 3 && m.parameters <= 6) ||
+        (filter === "mobile" && m.parameters >= 2 && m.parameters <= 6) ||
         (filter === "powerful" && m.parameters >= 7) ||
         (filter === "code" && m.skills?.includes("code")) ||
         filter === m.kind ||
@@ -1055,12 +1158,15 @@ $("confirmYes").onclick = () => {
 function renderModels() {
   const root = $("models");
   root.replaceChildren();
-  const visible = visibleModels();
+  const recommendedId = recommendedModelId();
+  const visible = visibleModels().sort(
+    (x, y) => (y.id === recommendedId) - (x.id === recommendedId),
+  );
   $("catalogCount").textContent =
     state.models.length +
     " modelos · " +
-    state.models.filter((m) => m.parameters >= 3 && m.parameters <= 6).length +
-    " de 3–6B";
+    state.models.filter((m) => m.parameters >= 2 && m.parameters <= 6).length +
+    " de 2–6B";
   $("resultCount").textContent = visible.length + " modelos en esta vista";
   visible.forEach((m) => {
     const assessment = assessModel(m),
@@ -1085,7 +1191,12 @@ function renderModels() {
       el("small", "", category + " · " + m.parameters + "B · " + m.quant),
     );
     top.append(icon, title);
-    card.append(top, el("p", "", m.description));
+    card.append(top);
+    if (m.id === recommendedId)
+      card.append(
+        el("p", "recommended-badge", "★ Recomendado para tu teléfono"),
+      );
+    card.append(el("p", "", m.description));
     const info = el("details", "model-details");
     info.append(el("summary", "", "Memoria y compatibilidad"));
     const stats = el("div", "stats");
@@ -1566,19 +1677,35 @@ window.receive = (type, data) => {
     case "done":
       if (!running) break;
       if (operationKind === "chat") {
-        if (answer.trim()) {
-          messages.push({
-            role: "assistant",
-            content: answer,
-            finishReason,
-            workspace: current.requestWorkspace,
-          });
+        const parts = splitThinking(answer);
+        if (parts.answer.trim()) {
+          const hidden = messages.at(-1)?.hidden ? messages.at(-1) : null,
+            before = hidden ? messages.at(-2) : null;
+          if (hidden && before?.role === "assistant") {
+            messages.pop();
+            before.content = mergeContinuation(before.content, parts.answer);
+            before.finishReason = finishReason;
+          } else {
+            messages.push({
+              role: "assistant",
+              content: parts.answer,
+              thinking: parts.thinking || undefined,
+              finishReason,
+              workspace: current.requestWorkspace,
+            });
+          }
+          autoContinue =
+            finishReason === "length" &&
+            !operationStopped &&
+            continuationRounds < 3;
         } else if (!chatFailure) {
           chatFailure = {
             action: "chat",
             message: operationStopped
               ? "Respuesta detenida. Puedes reintentar el mensaje."
-              : "El modelo no devolvió texto. Reintenta el mensaje o vuelve a cargar el modelo.",
+              : parts.thinking
+                ? "El modelo agotó el límite pensando y no llegó a responder. Reintenta o sube el máximo de tokens en Ajustes."
+                : "El modelo no devolvió texto. Reintenta el mensaje o vuelve a cargar el modelo.",
           };
         }
         current.pending = false;
@@ -1598,6 +1725,10 @@ window.receive = (type, data) => {
       loadingModelId = "";
       setBusy(false);
       renderChat();
+      if (autoContinue) {
+        autoContinue = false;
+        setTimeout(() => continueAnswer(true), 0);
+      }
       break;
     case "idle":
       if (running && !["delete", "unload"].includes(operationKind)) break;

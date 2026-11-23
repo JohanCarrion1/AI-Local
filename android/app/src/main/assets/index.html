@@ -122,7 +122,7 @@
           />
           <div class="filters">
             <button class="selected" data-filter="mobile">
-              Para tu celular · 3–6B</button
+              Para tu celular · 2–6B</button
             ><button data-filter="powerful">Grandes · 7B+</button
             ><button data-filter="all">Todos</button
             ><button data-filter="code">Código</button
@@ -411,8 +411,9 @@
         ><select id="responseTokens">
           <option value="256">256</option>
           <option value="512">512</option>
-          <option value="1024" selected>1024</option>
-          <option value="2048">2048</option></select
+          <option value="1024">1024</option>
+          <option value="2048" selected>2048</option>
+          <option value="4096">4096</option></select
         ><label for="responseStyle">Estilo de respuesta</label>
         <select id="responseStyle">
           <option value="direct">Directa · sin introducciones largas</option>
@@ -431,8 +432,8 @@
         <label for="contextTokens">Contexto del modelo</label
         ><select id="contextTokens">
           <option value="512">512 tokens · memoria mínima</option>
-          <option value="1024" selected>1024 tokens · ligero</option>
-          <option value="2048">2048 tokens</option>
+          <option value="1024">1024 tokens · ligero</option>
+          <option value="2048" selected>2048 tokens</option>
           <option value="4096">4096 tokens</option></select
         ><small
           >Se aplica al volver a cargar el modelo. Menos contexto consume menos
@@ -526,7 +527,7 @@
       </section>
       <small id="settingsStatus" role="status"
         >Los ajustes se guardan en este teléfono.</small
-      ><small class="version">Auren · 2.8.1</small>
+      ><small class="version">Auren · 2.9.0</small>
     </dialog>
     <dialog
       id="modelPicker"

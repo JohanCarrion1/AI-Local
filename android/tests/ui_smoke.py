@@ -115,7 +115,7 @@ with sync_playwright() as p:
     page.locator('#historySearch').fill('primera')
     assert page.locator('.history-item').count()==1
     page.locator('.history-item').click()
-    assert page.locator('.bubble.assistant').inner_text().endswith('Primera respuesta guardada.\nCopiar')
+    assert page.locator('.bubble.assistant').inner_text().endswith('Primera respuesta guardada.\nCopiar\nGuardar como…')
     assert page.evaluate('current.id')==first_id
     page.reload();page.evaluate('(s)=>receive("state",s)', state)
     assert page.evaluate('store.sessions.length')==2
@@ -123,9 +123,10 @@ with sync_playwright() as p:
 
     # Existing model catalog and realistic resource estimates remain functional.
     navigate(page,'library')
-    assert page.locator('#models article').count()==sum(3<=m['parameters']<=6 for m in models)>=10
+    assert page.locator('#models article').count()==sum(2<=m['parameters']<=6 for m in models)>=10
     assert page.locator('[data-model="qwen3"]').is_visible(), 'The existing Coder 3B must no longer be hidden'
     assert page.locator('[data-model="qwenvl3"]').is_visible()
+    assert page.locator('[data-model="qwen3vl2"]').is_visible(), 'The newly integrated 2B vision model is visible by default'
     assert page.locator('[data-model="qwen3vl4"]').is_visible()
     assert not page.locator('[data-model="qwen7"]').count()
     page.locator('[data-filter="code"]').click()
@@ -154,6 +155,9 @@ with sync_playwright() as p:
     five=dict(ram=7.2,available=5,budget=4.75,storage=100,installed=[])
     assert page.evaluate('(d)=>assessModel(state.models.find(m=>m.id==="qwen7"),d).level',five)!='large'
     assert page.evaluate('(d)=>assessModel(state.models.find(m=>m.id==="qwen7-q3"),d).recommended',five)
+    rec=page.evaluate('()=>{state.ram=7.2;state.available=5;state.budget=4.75;state.storage=100;return recommendedModelId()}')
+    assert rec and page.evaluate('(id)=>{const m=state.models.find(x=>x.id===id);return m.kind!=="reasoning"&&assessModel(m).estimate.upper<=state.ram*.45}',rec)
+    assert page.evaluate('()=>{state.ram=0;return recommendedModelId()}') is None
 
     # Explicit preferred-model auto-loading is persistent and happens only once per launch.
     settings(page)
@@ -294,6 +298,7 @@ with sync_playwright() as p:
     limited.add_init_script('window.calls=[];window.Native={command:(a,d)=>calls.push([a,JSON.parse(d)])};')
     limited.goto('http://127.0.0.1:8765');limited.evaluate('(s)=>receive("state",s)',state)
     limited.locator('#prompt').fill('Escribe un programa completo');limited.locator('#send').click()
+    limited.evaluate('continuationRounds=3')  # automatic continuation already exhausted
     limited.evaluate('receive("metrics",{finishReason:"length",context:1024,tps:1,stopped:false})')
     deliver(limited, '**Código**\n```python\nprint("<script>alert(1)</script>")\n```\nFin.')
     assert limited.locator('.message-code code').inner_text() == 'print("<script>alert(1)</script>")'
@@ -309,6 +314,47 @@ with sync_playwright() as p:
     limited.evaluate('window.dispatchEvent(new Event("focus"))')
     assert limited.evaluate('calls.at(-1)[0]')=='inferenceState'
     assert limited.evaluate('calls.length') > calls_before
+
+    # Cut answers continue by themselves and are merged into one message with whole code blocks.
+    auto=browser.new_page(viewport={'width':390,'height':844})
+    auto.add_init_script('window.calls=[];window.Native={command:(a,d)=>calls.push([a,JSON.parse(d)])};')
+    auto.goto('http://127.0.0.1:8765');auto.evaluate('(s)=>receive("state",s)',state)
+    auto.locator('#prompt').fill('Haz un programa');auto.locator('#send').click()
+    auto.evaluate('receive("metrics",{finishReason:"length",context:2048,tps:1,stopped:false})')
+    deliver(auto, 'Aquí va:\n```python\ndef a():\n    if x_precio')
+    auto.wait_for_function('calls.filter(c=>c[0]==="chat").length===2')
+    sent=auto.evaluate('calls.at(-1)[1].messages.at(-1).content')
+    assert 'x_precio' in sent and 'sin repetir' in sent
+    assert auto.locator('.bubble.user').count()==1, 'The synthetic continuation prompt is hidden'
+    auto.evaluate('receive("metrics",{finishReason:"stop",context:2048,tps:1,stopped:false})')
+    deliver(auto, 'if x_precio > 0:\n        return 1\n```\nListo.')
+    assert auto.locator('.bubble.assistant').count()==1, 'Continuation joins the previous answer'
+    assert auto.locator('.message-code').count()==1, 'One uninterrupted code block'
+    code=auto.locator('.message-code code').inner_text()
+    assert code=='def a():\n    if x_precio > 0:\n        return 1', code
+    auto.get_by_role('button',name='Guardar como…',exact=True).click()
+    auto.get_by_role('button',name='.pdf',exact=True).click()
+    assert auto.evaluate('calls.at(-1)[0]')=='export'
+    assert 'def a()' in auto.evaluate('calls.at(-1)[1].content')
+    assert not auto.locator('.continue-answer').count()
+    assert auto.evaluate('calls.filter(c=>c[0]==="chat").length')==2
+
+    # Reasoning stays hidden (collapsed) and the composer has no focus rectangle.
+    think=browser.new_page(viewport={'width':390,'height':844})
+    think.add_init_script('window.calls=[];window.Native={command:(a,d)=>calls.push([a,JSON.parse(d)])};')
+    think.goto('http://127.0.0.1:8765');think.evaluate('(s)=>receive("state",s)',state)
+    think.locator('#prompt').focus()
+    assert think.evaluate('getComputedStyle(document.getElementById("prompt")).borderTopWidth')=='0px'
+    assert think.evaluate('getComputedStyle(document.getElementById("prompt")).boxShadow')=='none'
+    think.locator('#prompt').fill('Hola');think.locator('#send').click()
+    think.evaluate('receive("answer","<think>razonando en secreto")')
+    assert think.locator('.streaming').inner_text()=='Pensando…'
+    think.evaluate('receive("metrics",{finishReason:"stop",context:2048,tps:1,stopped:false})')
+    deliver(think, '<think>\nrazonando en secreto\n</think>\n\nRespuesta final.')
+    assert think.locator('.bubble.assistant .message-text').inner_text()=='Respuesta final.'
+    assert 'razonando' not in think.locator('.bubble.assistant').inner_text()
+    assert think.locator('.thinking summary').inner_text()=='Pensamiento'
+    assert think.evaluate('messages.at(-1).content')=='Respuesta final.'
 
     # GitHub onboarding is an actual app action, available before loading a model.
     git=browser.new_page(viewport={'width':390,'height':844})

@@ -29,6 +29,7 @@ public class MainActivity extends Activity {
   private volatile String active = "", token = "";
   private volatile int activeContext = 0;
   private String pickerSessionId = "";
+  private String exportContent = null, exportFormat = "";
   private volatile boolean busy = false;
   private volatile InferenceService inferenceService;
   private boolean bound, visible;
@@ -57,6 +58,9 @@ public class MainActivity extends Activity {
         }
       };
   private boolean destroyed = false;
+  private boolean rendererLost = false, rendererRecovering = false;
+  // Static so a crash loop is still detected across the recreated Activity instance.
+  private static long lastRendererRecovery = -1;
   private String interruptedLoad = "";
   private final Handler handler = new Handler(Looper.getMainLooper());
   private long lastResourceRefresh = 0;
@@ -87,7 +91,11 @@ public class MainActivity extends Activity {
   @Override
   public void onCreate(Bundle state) {
     super.onCreate(state);
-    if (state != null) pickerSessionId = state.getString("pickerSessionId", "");
+    if (state != null) {
+      pickerSessionId = state.getString("pickerSessionId", "");
+      exportContent = state.getString("exportContent");
+      exportFormat = state.getString("exportFormat", "");
+    }
     prefs = getSharedPreferences("local", MODE_PRIVATE);
     dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
     recoverInterruptedLoad();
@@ -157,6 +165,20 @@ public class MainActivity extends Activity {
           }
 
           @Override
+          public boolean onRenderProcessGone(WebView v, RenderProcessGoneDetail detail) {
+            // The WebView renderer is a separate process that Android reclaims first when RAM
+            // is tight, which a multi-GB model makes likely while the app is in the background.
+            // Returning false would crash this whole process, taking the loaded model and the
+            // response in progress with it. The inference service lives in this process, so
+            // only the UI is rebuilt and then reattaches to the running job.
+            android.util.Log.w("Auren", "WebView renderer gone; crashed=" + detail.didCrash());
+            if (destroyed) return true;
+            rendererLost = true;
+            if (visible) handler.post(MainActivity.this::recoverWebView);
+            return true;
+          }
+
+          @Override
           public void onPageFinished(WebView v, String u) {
             if (u.equals("https://appassets.androidplatform.net/assets/index.html"))
               io.execute(
@@ -183,7 +205,7 @@ public class MainActivity extends Activity {
               + ")";
       runOnUiThread(
           () -> {
-            if (!destroyed) web.evaluateJavascript(js, null);
+            if (!destroyed && !rendererLost) web.evaluateJavascript(js, null);
           });
     } catch (Exception ignored) {
     }
@@ -546,6 +568,31 @@ public class MainActivity extends Activity {
             });
         return;
       }
+      if (action.equals("export")) {
+        runOnUiThread(
+            () -> {
+              try {
+                JSONObject request = new JSONObject(payload);
+                String format = request.getString("format");
+                String content = request.getString("content");
+                if (content.trim().isEmpty())
+                  throw new IllegalArgumentException("La respuesta está vacía.");
+                exportContent = content;
+                exportFormat = format;
+                startActivityForResult(
+                    new Intent(Intent.ACTION_CREATE_DOCUMENT)
+                        .setType(Exporter.mime(format))
+                        .addCategory(Intent.CATEGORY_OPENABLE)
+                        .putExtra(
+                            Intent.EXTRA_TITLE,
+                            Exporter.safeName(request.optString("title"), format)),
+                    12);
+              } catch (Exception e) {
+                event("error", "No se pudo preparar el archivo: " + e.getMessage());
+              }
+            });
+        return;
+      }
       if (action.equals("clearImage") || action.equals("clearImages")) {
         runOnUiThread(
             () -> {
@@ -753,6 +800,26 @@ public class MainActivity extends Activity {
   @Override
   protected void onActivityResult(int request, int result, Intent data) {
     super.onActivityResult(request, result, data);
+    if (request == 12) {
+      String content = exportContent, format = exportFormat;
+      exportContent = null;
+      exportFormat = "";
+      if (result != RESULT_OK || data == null || data.getData() == null || content == null) return;
+      Uri target = data.getData();
+      new Thread(
+              () -> {
+                try (OutputStream out = getContentResolver().openOutputStream(target, "wt")) {
+                  if (out == null) throw new IOException("No se pudo abrir el destino.");
+                  out.write(Exporter.export(content, format));
+                  event("notice", "Archivo ." + format + " guardado.");
+                } catch (Exception e) {
+                  event("error", "No se pudo guardar el archivo: " + e.getMessage());
+                }
+              },
+              "export")
+          .start();
+      return;
+    }
     if (request != 11) return;
     if (result != RESULT_OK || data == null) {
       if (inferenceService != null)
@@ -791,6 +858,8 @@ public class MainActivity extends Activity {
   @Override
   protected void onSaveInstanceState(Bundle out) {
     out.putString("pickerSessionId", pickerSessionId);
+    out.putString("exportContent", exportContent);
+    out.putString("exportFormat", exportFormat);
     super.onSaveInstanceState(out);
   }
 
@@ -806,6 +875,10 @@ public class MainActivity extends Activity {
   @Override
   public void onBackPressed() {
     if (destroyed) return;
+    if (rendererLost) {
+      recoverWebView();
+      return;
+    }
     web.evaluateJavascript(
         "typeof window.handleBack === 'function' && window.handleBack()",
         handled -> {
@@ -818,16 +891,29 @@ public class MainActivity extends Activity {
         });
   }
 
+  /** Rebuilds the UI after the WebView renderer was killed; the model and any job keep running. */
+  private void recoverWebView() {
+    if (destroyed || !rendererLost || rendererRecovering) return;
+    rendererRecovering = true;
+    long now = SystemClock.elapsedRealtime();
+    boolean looping = lastRendererRecovery >= 0 && now - lastRendererRecovery < 10000;
+    lastRendererRecovery = now;
+    // A second loss right after recovering means recreating will not help: leave the
+    // service running and let the next launch start from a clean WebView.
+    if (looping) finish();
+    else recreate();
+  }
+
   @Override
   protected void onResume() {
     super.onResume();
-    web.onResume();
+    if (!rendererLost) web.onResume();
     if (inferenceService != null) event("inference", inferenceService.snapshot());
   }
 
   @Override
   protected void onPause() {
-    web.onPause();
+    if (!rendererLost) web.onPause();
     super.onPause();
   }
 
@@ -835,6 +921,7 @@ public class MainActivity extends Activity {
   protected void onStart() {
     super.onStart();
     visible = true;
+    if (rendererLost) handler.post(this::recoverWebView);
     handler.post(ticker);
     if (inferenceService != null) inferenceService.listen(inferenceListener);
   }
@@ -858,6 +945,8 @@ public class MainActivity extends Activity {
     }
     inferenceService = null;
     io.shutdown();
+    if (web.getParent() instanceof android.view.ViewGroup)
+      ((android.view.ViewGroup) web.getParent()).removeView(web);
     web.destroy();
     super.onDestroy();
   }

@@ -1,3 +1,21 @@
-<inset xmlns:android="http://schemas.android.com/apk/res/android" android:inset="4dp">
-    <bitmap android:src="@drawable/auren_artwork" android:gravity="fill" android:filter="true" android:tint="#FFFFFF" />
-</inset>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M54,25.5a28.5,28.5 0,1 0,0 57a28.5,28.5 0,1 0,0 -57z"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.4"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M39,73L54,34L69,73M45,61.5L63,61.5"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M77.4,36.5m-3.4,0a3.4,3.4 0,1 1,6.8 0a3.4,3.4 0,1 1,-6.8 0"
+        android:fillColor="#FFFFFF" />
+</vector>

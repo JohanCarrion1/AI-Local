@@ -48,19 +48,23 @@ jobs:
               assert required <= libs, f'Missing native dependencies: {required - libs}'
               print('Verified bundled native engine:', ', '.join(sorted(libs)))
           PYAPK
+      - name: Name the installable APK
+        run: |
+          python3 - <<'PYNAME'
+          import os, pathlib, re, shutil
+          version = re.search(r"versionName '([^']+)'", pathlib.Path('android/app/build.gradle').read_text()).group(1)
+          folder = pathlib.Path(os.environ['RUNNER_TEMP']) / 'auren-apk'
+          folder.mkdir(exist_ok=True)
+          shutil.copyfile('android/app/build/outputs/apk/debug/app-debug.apk', folder / ('Auren-' + version + '.apk'))
+          with open(os.environ['GITHUB_ENV'], 'a') as env:
+              env.write('APK_VERSION=' + version + '\n')
+          PYNAME
       - uses: actions/upload-artifact@v4
         with:
-          name: ai-local-android-arm64
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: Auren-${{ env.APK_VERSION }}-Android-APK
+          path: ${{ runner.temp }}/auren-apk/*.apk
           if-no-files-found: error
           retention-days: 30
-      - name: Upload diagnostic reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-reports
-          path: android/app/build/reports/
-          if-no-files-found: ignore
   interface-test:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -74,7 +78,7 @@ jobs:
       - run: python android/tests/ui_smoke.py
 
   android-insets-test:
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -112,15 +116,9 @@ jobs:
             adb shell 'run-as com.ailocal.app sh -c "cat > files/smol-0.gguf"' < "$RUNNER_TEMP/auren-fixtures/smol-0.gguf"
             adb shell 'run-as com.ailocal.app sh -c "cat > files/smol-1.gguf"' < "$RUNNER_TEMP/auren-fixtures/smol-1.gguf"
             ./android/gradlew -p android --no-daemon --max-workers=2 -PtestAbi=x86_64 connectedDebugAndroidTest
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: android-insets-test-results
-          path: android/app/build/reports/androidTests/
-          if-no-files-found: ignore
 
   arm64-mobile-models:
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
     strategy:
@@ -157,11 +155,3 @@ jobs:
           else
             java -Djava.library.path=build/native/bin -cp build/classes com.ailocal.app.VisionRegression "$RUNNER_TEMP/auren-fixtures/$MODEL-0.gguf" "$RUNNER_TEMP/auren-fixtures/$MODEL-1.gguf" "$PWD/build/native/bin" 2>&1 | tee "$MODEL.log"
           fi
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: mobile-${{ matrix.model }}-results
-          path: |
-            ${{ matrix.model }}.log
-            generated.py
-          if-no-files-found: ignore

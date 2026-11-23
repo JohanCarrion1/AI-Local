@@ -9,6 +9,7 @@
 #include <fstream>
 #include <algorithm>
 #include "ggml-backend.h"
+#include "gguf.h"
 #if defined(__linux__)
 #include <sched.h>
 #endif
@@ -122,7 +123,28 @@ extern "C" JNIEXPORT void JNICALL Java_com_ailocal_app_Engine_loadConfigured(JNI
     if(!model) { fail(e,cancelled?"Carga detenida.":"No se pudo abrir el GGUF. Comprueba el archivo y la RAM disponible."); return; }
     if(cancelled) { Java_com_ailocal_app_Engine_unload(e,c); fail(e,"Carga detenida."); return; }
     thread_count=usable_threads(threads);
-    auto cp=llama_context_default_params(); cp.n_ctx=std::max(512,std::min(4096,(int)context)); cp.n_batch=128; cp.n_ubatch=64; cp.type_k=GGML_TYPE_Q8_0; cp.type_v=GGML_TYPE_F16; cp.n_threads=thread_count; cp.n_threads_batch=thread_count;
+    // Gemma's fixed-resolution image block uses non-causal attention and must
+    // fit in one micro-batch. Read only metadata, keeping the encoder lazy.
+    int image_batch=64;
+    auto projector_file=str(e,projector);
+    if(!projector_file.empty()) {
+        auto meta=gguf_init_from_file(projector_file.c_str(),{true,nullptr});
+        if(meta) {
+            auto type=gguf_find_key(meta,"clip.projector_type");
+            auto number=[&](const char * key,int fallback) {
+                auto i=gguf_find_key(meta,key);
+                return i>=0 && gguf_get_kv_type(meta,i)==GGUF_TYPE_UINT32 ? (int)gguf_get_val_u32(meta,i) : fallback;
+            };
+            if(type>=0 && gguf_get_kv_type(meta,type)==GGUF_TYPE_STRING && std::string(gguf_get_val_str(meta,type))=="gemma3") {
+                int side=number("clip.vision.image_size",896), patch=number("clip.vision.patch_size",14);
+                int scale=number("clip.vision.projector.scale_factor",4);
+                if(side>0 && side<=8192 && patch>0 && scale>0) { int cells=side/patch/scale; image_batch=std::max(64,cells*cells); }
+            }
+            gguf_free(meta);
+        }
+    }
+    if(image_batch>1024) { Java_com_ailocal_app_Engine_unload(e,c); fail(e,"El proyector requiere un bloque visual mayor al perfil móvil disponible."); return; }
+    auto cp=llama_context_default_params(); cp.n_ctx=std::max(512,std::min(4096,(int)context)); cp.n_batch=std::max(128,image_batch); cp.n_ubatch=image_batch; cp.type_k=GGML_TYPE_Q8_0; cp.type_v=GGML_TYPE_F16; cp.n_threads=thread_count; cp.n_threads_batch=thread_count;
     cp.abort_callback=[](void*){ return cancelled.load(); };
     progress.emit("context",0,0);
     compact_kv=true;
@@ -148,7 +170,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_ailocal_app_Engine_generateImage(JNIE
     auto started=std::chrono::steady_clock::now(); finish_reason="error"; context_shifts=trimmed_tokens=0; generated_tokens=0; generation_ms=0; reused_tokens=0;
     prompt_ms=image_ms=decode_ms=first_token_ms=0; prompt_tokens=image_tokens=0; reused_image=image_processed=false;
     const int context_size=(int)llama_n_ctx(ctx);
-    const int requested_limit=std::max(1,std::min((int)maxTokens,2048));
+    const int requested_limit=std::max(1,std::min((int)maxTokens,4096));
     int output_limit=requested_limit;
     cancelled=false;
     Progress progress(e,observer);
