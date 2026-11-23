@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+name: Desktop Python checks (not Android)
 
 on:
   push:
@@ -63,7 +63,7 @@ jobs:
       with:
         python-version: '3.11'
     
-    - name: Build package
+    - name: Package desktop Python sources (not an APK)
       run: |
         pip install build
         python -m build --sdist --wheel
@@ -71,7 +71,7 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ai-local-hub-package
+        name: desktop-python-source-not-an-apk
         path: dist/*
         retention-days: 7
 

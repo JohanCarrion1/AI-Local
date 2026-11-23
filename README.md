@@ -6,7 +6,13 @@ Asistente Android con inferencia **dentro de la aplicación**, sin Termux, Pytho
 
 ## Instalar
 
-En **Actions → Android APK Build**, abre una ejecución de tu rama y descarga `ai-local-android-arm64`. Descomprime e instala `app-debug.apk` en un teléfono **Android 8+ de 64 bits (ARM64)**. Es una compilación de prueba, no una versión para Play Store. Desde 2.1 se usa una clave debug pública y estable para que las siguientes actualizaciones de prueba mantengan la firma. Las versiones 2.0 anteriores usaban claves generadas en cada runner: Android puede exigir desinstalarlas antes de instalar 2.1, lo que elimina sus datos y modelos locales. Una publicación de producción debe usar una clave privada diferente. El paquete nuevo es `com.ailocal.app`; no reemplaza automáticamente el antiguo prototipo Kivy.
+**[Descargar Auren-2.8.1.apk directamente](https://github.com/JohanCarrion1/AI-Local/releases/download/v2.8.1/Auren-2.8.1.apk)**
+
+Abre ese archivo `.apk` en un teléfono **Android 8+ de 64 bits (ARM64)** e instálalo sobre la versión anterior. No hace falta descomprimirlo. Android debe identificarlo como **Auren 2.8.1**.
+
+El antiguo `ai-local-hub-package.zip` contiene el proyecto Python de escritorio y no se instala en Android. Las siguientes compilaciones de ese proyecto se llaman `desktop-python-source-not-an-apk`. Para otras ramas de la app Android, usa **Actions → Android APK Build → ai-local-android-arm64** y extrae el APK de ese artefacto.
+
+Desde 2.1 se usa una clave debug pública y estable para que las siguientes actualizaciones mantengan la firma. Las versiones 2.0 anteriores usaban claves generadas en cada runner: Android puede exigir desinstalarlas antes de instalar 2.1, lo que elimina sus datos y modelos locales. Una publicación de producción debe usar una clave privada diferente. El paquete es `com.ailocal.app`; no reemplaza automáticamente el antiguo prototipo Kivy.
 
 ## Interfaz y personalización
 

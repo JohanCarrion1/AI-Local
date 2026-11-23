@@ -1,0 +1,89 @@
+name: Publish installable Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Successful Android APK Build run
+        required: true
+        default: "45095340001"
+        type: string
+      version:
+        description: Android version name
+        required: true
+        default: "2.8.1"
+        type: string
+      sha256:
+        description: Verified SHA-256 of the compiled APK
+        required: true
+        default: "398e7244eb0e59e177c89ce8e75e8caf6d5e96bf4ee2efdb9b8f71db72806089"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-apk-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      SOURCE_RUN: ${{ inputs.run_id }}
+      APK_VERSION: ${{ inputs.version }}
+      APK_SHA256: ${{ inputs.sha256 }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate the successful Android build
+        run: |
+          python3 - <<'PY'
+          import json, os, re, subprocess
+          assert re.fullmatch(r'[0-9]+', os.environ['SOURCE_RUN'])
+          assert re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+', os.environ['APK_VERSION'])
+          assert re.fullmatch(r'[0-9a-f]{64}', os.environ['APK_SHA256'])
+          run = json.loads(subprocess.check_output(['gh', 'api', 'repos/'+os.environ['GH_REPO']+'/actions/runs/'+os.environ['SOURCE_RUN']]))
+          assert run['conclusion'] == 'success', 'Source build must have passed'
+          assert run['path'] == '.github/workflows/android.yml', 'Require the native Android workflow'
+          assert run['head_branch'] == 'main', 'Publish only verified main builds'
+          with open(os.environ['GITHUB_ENV'], 'a') as env:
+              env.write('SOURCE_SHA='+run['head_sha']+'\n')
+          PY
+      - uses: actions/download-artifact@v4
+        with:
+          name: ai-local-android-arm64
+          path: apk
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+      - name: Verify and name the actual APK
+        run: |
+          python3 - <<'PY'
+          import hashlib, os, pathlib, zipfile
+          source = pathlib.Path('apk/app-debug.apk')
+          assert hashlib.sha256(source.read_bytes()).hexdigest() == os.environ['APK_SHA256']
+          with zipfile.ZipFile(source) as apk:
+              assert {'AndroidManifest.xml', 'classes.dex', 'resources.arsc'} <= set(apk.namelist())
+              assert 'Auren · '+os.environ['APK_VERSION'] in apk.read('assets/index.html').decode()
+              assert 'lib/arm64-v8a/libailocal.so' in apk.namelist()
+          target = source.with_name('Auren-'+os.environ['APK_VERSION']+'.apk')
+          source.rename(target)
+          print('Verified installable APK:', target, target.stat().st_size, 'bytes')
+          PY
+      - name: Upload APK and publish its direct download
+        run: |
+          set -euo pipefail
+          release_tag="v$APK_VERSION"
+          if gh release view "$release_tag" --json isDraft >/dev/null 2>&1; then
+            test "$(gh release view "$release_tag" --json isDraft --jq .isDraft)" = true
+          else
+            gh release create "$release_tag" --target "$SOURCE_SHA" --draft --title "Auren $APK_VERSION · Android APK" --notes "Instalador Android ARM64. Descarga el archivo Auren-$APK_VERSION.apk y ábrelo directamente. SHA-256: $APK_SHA256"
+          fi
+          gh release upload "$release_tag" "apk/Auren-$APK_VERSION.apk"
+          gh release edit "$release_tag" --draft=false
+          printf '### APK Android\n\n[Descargar Auren %s](https://github.com/%s/releases/download/%s/Auren-%s.apk)\n' "$APK_VERSION" "$GH_REPO" "$release_tag" "$APK_VERSION" >> "$GITHUB_STEP_SUMMARY"
