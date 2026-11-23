@@ -77,6 +77,9 @@ La lectura de imágenes utiliza selección determinista de tokens para evitar va
 | Qwen Coder · 7B | Q4_K_M | 4.68 GB | Texto |
 | Qwen Coder · 7B · compacto Q3 | Q3_K_M | 3.81 GB | Texto |
 | Qwen Coder · 7B Abliterated | Q4_K_M | 4.68 GB | Texto |
+| Qwen3 · 4B Abliterated (sin filtros) | Q4_K_M | 2.50 GB | Texto |
+| Dolphin 3.0 · Qwen2.5 3B (sin censura) | Q4_K_M | 1.93 GB | Texto |
+| Llama 3.2 · 3B Uncensored | Q4_K_M | 2.24 GB | Texto |
 | Qwen Coder · 0.5B | Q4_K_M | 0.49 GB | Texto |
 | Qwen Coder · 3B | Q4_K_M | 2.10 GB | Texto |
 | SmolVLM · 500M | Q8_0 | 0.55 GB | Texto + imagen |
@@ -157,3 +160,7 @@ Saludo compacto y centrado; paleta HSV táctil con controles accesibles de tono,
 La inferencia sigue en el servicio de primer plano con bloqueo de CPU durante la generación. La pantalla se vuelve a conectar al reanudarse, al recuperar foco y mediante un refresco ligero independiente de las descargas y GitHub. Solo se actualiza el bloque que se está escribiendo, evitando reconstruir el historial por cada fragmento. En Personalización → Segundo plano se pueden abrir los ajustes de batería del teléfono; se muestra si Android restringe el proceso.
 
 El motor informa si termina por EOS, cancelación, límite de respuesta o contexto. El contexto textual se desplaza cuando el modelo permite mover su KV: conserva el prefijo inicial y el texto más reciente en lugar de detener la generación al llenar la ventana. Cuando el historial excede la ventana se conservan su inicio y su tramo reciente; las referencias de archivos GitHub se mantienen completas y muestran un error si no caben; un mensaje nuevo demasiado grande sigue mostrando un error y puede requerir aumentar el contexto. Las imágenes y los modelos que no admiten desplazar KV conservan su límite de contexto. Una respuesta limitada por longitud ofrece Continuar; si se llena un contexto que no se puede desplazar, ofrece Ampliar contexto; no se presenta como una interrupción de Android. Las instalaciones nuevas usan un máximo de 1024 tokens; se respetan los ajustes guardados. Cerrar forzosamente el proceso o su eliminación por falta de memoria interrumpe la inferencia: se conserva la parte escrita y la opción de reintentar.
+
+## Respuestas largas
+
+El límite por respuesta sube a 2048 tokens por defecto (hasta 4096) y el contexto a 2048. Si una respuesta aún se corta por longitud, Auren continúa sola hasta 3 veces y une el texto en un único mensaje, de modo que el bloque de código no se parte. El botón "Continuar" sigue disponible si hace falta más.

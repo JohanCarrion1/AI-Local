@@ -54,8 +54,8 @@ jobs:
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
-      - name: Upload diagnostic reports
-        if: always()
+      - name: Upload diagnostic reports (only when the build fails)
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: android-reports
@@ -74,7 +74,7 @@ jobs:
       - run: python android/tests/ui_smoke.py
 
   android-insets-test:
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -113,14 +113,14 @@ jobs:
             adb shell 'run-as com.ailocal.app sh -c "cat > files/smol-1.gguf"' < "$RUNNER_TEMP/auren-fixtures/smol-1.gguf"
             ./android/gradlew -p android --no-daemon --max-workers=2 -PtestAbi=x86_64 connectedDebugAndroidTest
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: failure()
         with:
           name: android-insets-test-results
           path: android/app/build/reports/androidTests/
           if-no-files-found: ignore
 
   arm64-mobile-models:
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
     strategy:
@@ -158,7 +158,7 @@ jobs:
             java -Djava.library.path=build/native/bin -cp build/classes com.ailocal.app.VisionRegression "$RUNNER_TEMP/auren-fixtures/$MODEL-0.gguf" "$RUNNER_TEMP/auren-fixtures/$MODEL-1.gguf" "$PWD/build/native/bin" 2>&1 | tee "$MODEL.log"
           fi
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: failure()
         with:
           name: mobile-${{ matrix.model }}-results
           path: |
