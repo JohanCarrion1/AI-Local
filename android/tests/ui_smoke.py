@@ -356,6 +356,16 @@ with sync_playwright() as p:
     assert think.locator('.thinking summary').inner_text()=='Pensamiento'
     assert think.evaluate('messages.at(-1).content')=='Respuesta final.'
 
+    # The thinking switch is sent to the engine.
+    sw=browser.new_page(viewport={'width':390,'height':844})
+    sw.add_init_script('window.calls=[];window.Native={command:(a,d)=>calls.push([a,JSON.parse(d)])};')
+    sw.goto('http://127.0.0.1:8765');sw.evaluate('(s)=>receive("state",s)',state)
+    assert sw.evaluate('prefs.thinking')==False
+    sw.evaluate('()=>{$("thinking").checked=true;$("thinking").onchange()}')
+    sw.locator('#prompt').fill('Hola');sw.locator('#send').click()
+    sw.wait_for_function('calls.some(c=>c[0]==="chat")')
+    assert sw.evaluate('calls.find(c=>c[0]==="chat")[1].thinking')==True
+
     # GitHub onboarding is an actual app action, available before loading a model.
     git=browser.new_page(viewport={'width':390,'height':844})
     git.add_init_script('window.calls=[];window.Native={command:(a,d)=>calls.push([a,JSON.parse(d)])};')

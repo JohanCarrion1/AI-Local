@@ -1,4 +1,4 @@
-# Auren · Android 2.9.1
+# Auren · Android 2.9.2
 
 Auren es el nuevo nombre de AI Local. Mantiene `com.ailocal.app`, la firma de actualización, los modelos descargados, el historial y los ajustes. Su icono conserva el diseño elegido: tres formas curvas en coral, naranja y dorado, centradas sobre fondo espresso. Incluye recursos adaptativos y una variante monocroma para iconos temáticos y notificaciones.
 
@@ -6,9 +6,9 @@ Asistente Android con inferencia **dentro de la aplicación**, sin Termux, Pytho
 
 ## Instalar
 
-**[Descargar Auren-2.9.1.apk directamente](https://github.com/JohanCarrion1/AI-Local/releases/download/v2.9.1/Auren-2.9.1.apk)**
+**[Descargar Auren-2.9.2.apk directamente](https://github.com/JohanCarrion1/AI-Local/releases/download/v2.9.2/Auren-2.9.2.apk)**
 
-Abre ese archivo `.apk` en un teléfono **Android 8+ de 64 bits (ARM64)** e instálalo sobre la versión anterior. No hace falta descomprimirlo. Android debe identificarlo como **Auren 2.9.1**.
+Abre ese archivo `.apk` en un teléfono **Android 8+ de 64 bits (ARM64)** e instálalo sobre la versión anterior. No hace falta descomprimirlo. Android debe identificarlo como **Auren 2.9.2**.
 
 El antiguo `ai-local-hub-package.zip` contiene el proyecto Python de escritorio y no se instala en Android. El flujo de escritorio se retiró de Actions para evitar descargas equivocadas. Para otras ramas de la app Android, usa **Actions → Android APK Build → Auren-VERSIÓN-Android-APK** y extrae el archivo Auren-VERSIÓN.apk de ese artefacto.
 
@@ -168,3 +168,11 @@ El límite por respuesta sube a 2048 tokens por defecto (hasta 4096) y el contex
 ## Cambios integrados en la compilación 2.9
 
 Se reúne el catálogo ampliado, los modelos ligeros y las variantes comunitarias, la recomendación según los recursos del teléfono, la exportación de respuestas a PDF/DOCX/Markdown/HTML/TXT, la continuación automática de respuestas y la vista plegada del razonamiento. El icono conserva el diseño coral, naranja y dorado elegido por el usuario.
+
+## Compilación y publicación
+
+Un solo flujo, `.github/workflows/android.yml`, hace todo. Cada cambio en `main` compila el APK, ejecuta las pruebas de interfaz y publica ese mismo APK como Release (`Auren-<versión>.apk`). En ramas y compilaciones manuales solo se guarda el APK como artefacto; las pruebas pesadas de emulador y ARM64 corren en los pull requests. Ya no hay un segundo flujo de publicación.
+
+## Pensar antes de responder
+
+En Ajustes hay un interruptor. Apagado (por defecto), los Qwen3 híbridos reciben el bloque de razonamiento ya cerrado y responden directo, mucho más rápido. Encendido, razonan primero y el razonamiento aparece en un desplegable "Pensamiento". La velocidad (tokens por segundo) se muestra bajo cada respuesta.

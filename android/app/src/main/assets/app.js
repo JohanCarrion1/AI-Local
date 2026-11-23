@@ -16,6 +16,7 @@ const defaultPrefs = {
   mode: "dark",
   defaultModel: "",
   autoLoad: false,
+  thinking: false,
   context: 2048,
   response: 2048,
   instructions: "Eres un asistente útil. Responde en español con precisión.",
@@ -933,6 +934,7 @@ function startChat() {
     imageId: latestPhoto?.id || undefined,
     expectsImage: !!latestPhoto,
     responseStyle: prefs.responseStyle === "detailed" ? "detailed" : "direct",
+    thinking: !!prefs.thinking,
     maxTokens: Number($("responseTokens").value) || 2048,
     messages: [
       {
@@ -2011,6 +2013,7 @@ function openSettings() {
   $("displayName").value = prefs.name;
   $("themeMode").value = prefs.mode;
   $("autoLoad").checked = !!prefs.autoLoad;
+  $("thinking").checked = !!prefs.thinking;
   $("showStats").checked = !!prefs.showStats;
   $("instructions").value = prefs.instructions;
   $("responseStyle").value =
@@ -2057,6 +2060,10 @@ $("defaultModel").onchange = () => {
 };
 $("autoLoad").onchange = () => {
   prefs.autoLoad = $("autoLoad").checked;
+  savePrefs();
+};
+$("thinking").onchange = () => {
+  prefs.thinking = $("thinking").checked;
   savePrefs();
 };
 $("responseTokens").onchange = () => {
