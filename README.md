@@ -164,3 +164,7 @@ El motor informa si termina por EOS, cancelación, límite de respuesta o contex
 ## Respuestas largas
 
 El límite por respuesta sube a 2048 tokens por defecto (hasta 4096) y el contexto a 2048. Si una respuesta aún se corta por longitud, Auren continúa sola hasta 3 veces y une el texto en un único mensaje, de modo que el bloque de código no se parte. El botón "Continuar" sigue disponible si hace falta más.
+
+## Cambios integrados en la compilación 2.9
+
+Se reúne el catálogo ampliado, los modelos ligeros y las variantes comunitarias, la recomendación según los recursos del teléfono, la exportación de respuestas a PDF/DOCX/Markdown/HTML/TXT, la continuación automática de respuestas y la vista plegada del razonamiento. El icono usa la identidad de bronce de `feat/todo-junto`, seleccionada por el usuario.

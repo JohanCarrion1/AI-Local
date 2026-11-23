@@ -745,5 +745,80 @@
     "quant": "Q8_0",
     "kvElementsPerToken": 20480,
     "architectureSource": "HuggingFaceTB/SmolVLM-500M-Instruct"
+  },
+  {
+    "id": "qwen3vl2",
+    "name": "Qwen3-VL Instruct · 2B",
+    "repo": "Qwen/Qwen3-VL-2B-Instruct-GGUF",
+    "revision": "52d6c8ffea26cc873ac5ad116f8631268d7eb503",
+    "parameters": 2,
+    "kind": "vision",
+    "quant": "Q4_K_M",
+    "description": "El modelo con visión más rápido y ligero: describe fotos y lee texto en imágenes con poca memoria.",
+    "vision": true,
+    "files": [
+      {
+        "file": "Qwen3VL-2B-Instruct-Q4_K_M.gguf",
+        "size": 1107409952,
+        "sha256": "089d75c52f4b7ffc56ba998ffc50aae89fcafc755f9e7208aacca281dca6c2ae",
+        "url": "https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct-GGUF/resolve/52d6c8ffea26cc873ac5ad116f8631268d7eb503/Qwen3VL-2B-Instruct-Q4_K_M.gguf"
+      },
+      {
+        "file": "mmproj-Qwen3VL-2B-Instruct-Q8_0.gguf",
+        "size": 445053216,
+        "sha256": "f9a68fabba69c3b81e153367b2c7521030b0fa8bb0de400c9599c8e6725f9c82",
+        "url": "https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct-GGUF/resolve/52d6c8ffea26cc873ac5ad116f8631268d7eb503/mmproj-Qwen3VL-2B-Instruct-Q8_0.gguf"
+      }
+    ],
+    "kvElementsPerToken": 57344,
+    "architectureSource": "Qwen/Qwen3-VL-2B-Instruct"
+  },
+  {
+    "id": "gemma3-4",
+    "name": "Gemma 3 Instruct · 4B",
+    "repo": "ggml-org/gemma-3-4b-it-GGUF",
+    "revision": "d0976223747697cb51e056d85c532013931fe52e",
+    "parameters": 4,
+    "kind": "vision",
+    "quant": "Q4_K_M",
+    "description": "Visión y texto con muy buen español: resúmenes, redacción y explicación de documentos e imágenes.",
+    "vision": true,
+    "files": [
+      {
+        "file": "gemma-3-4b-it-Q4_K_M.gguf",
+        "size": 2489757856,
+        "sha256": "882e8d2db44dc554fb0ea5077cb7e4bc49e7342a1f0da57901c0802ea21a0863",
+        "url": "https://huggingface.co/ggml-org/gemma-3-4b-it-GGUF/resolve/d0976223747697cb51e056d85c532013931fe52e/gemma-3-4b-it-Q4_K_M.gguf"
+      },
+      {
+        "file": "mmproj-model-f16.gguf",
+        "size": 851251104,
+        "sha256": "8c0fb064b019a6972856aaae2c7e4792858af3ca4561be2dbf649123ba6c40cb",
+        "url": "https://huggingface.co/ggml-org/gemma-3-4b-it-GGUF/resolve/d0976223747697cb51e056d85c532013931fe52e/mmproj-model-f16.gguf"
+      }
+    ],
+    "kvElementsPerToken": 69632,
+    "architectureSource": "google/gemma-3-4b-it"
+  },
+  {
+    "id": "llama32-3",
+    "name": "Llama 3.2 Instruct · 3B",
+    "repo": "bartowski/Llama-3.2-3B-Instruct-GGUF",
+    "revision": "5ab33fa94d1d04e903623ae72c95d1696f09f9e8",
+    "parameters": 3,
+    "kind": "chat",
+    "quant": "Q4_K_M",
+    "description": "Conversación y redacción fluidas en varios idiomas con muy poca memoria.",
+    "vision": false,
+    "files": [
+      {
+        "file": "Llama-3.2-3B-Instruct-Q4_K_M.gguf",
+        "size": 2019377696,
+        "sha256": "6c1a2b41161032677be168d354123594c0e6e67d2b9227c84f296ad037c728ff",
+        "url": "https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/5ab33fa94d1d04e903623ae72c95d1696f09f9e8/Llama-3.2-3B-Instruct-Q4_K_M.gguf"
+      }
+    ],
+    "kvElementsPerToken": 57344,
+    "architectureSource": "meta-llama/Llama-3.2-3B-Instruct"
   }
 ]

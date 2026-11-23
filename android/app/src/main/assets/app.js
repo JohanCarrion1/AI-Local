@@ -697,6 +697,28 @@ function renderChat(streamOnly = false) {
             ),
           );
         }
+        const save = el("button", "quiet", "Guardar como…");
+        save.onclick = () => {
+          const formats = el("span", "export-formats");
+          const title =
+            (m.content.match(/^#{1,3} +(.+)$/m) || [])[1] ||
+            m.content.split("\n").find((l) => l.trim()) ||
+            "";
+          for (const f of ["pdf", "docx", "md", "html", "txt"]) {
+            const choice = el("button", "quiet", "." + f);
+            choice.onclick = () => {
+              command("export", {
+                format: f,
+                content: m.content,
+                title: title.replace(/[#*`]/g, "").trim().slice(0, 60),
+              });
+              formats.replaceWith(save);
+            };
+            formats.append(choice);
+          }
+          save.replaceWith(formats);
+        };
+        actions.append(save);
         if ((opened && fileSha) || m.workspace) {
           const edit = el("button", "quiet to-github", "Llevar a GitHub ↗");
           edit.onclick = () => {
@@ -1062,6 +1084,19 @@ function assessModel(model, device = state) {
     estimate,
   };
 }
+// Largest general-purpose model that leaves at least ~55% of physical RAM to Android and
+// other apps. Keeping it modest favours speed over raw size on phones.
+function recommendedModelId() {
+  if (!Number.isFinite(state.ram)) return null;
+  let best = null;
+  for (const m of state.models || []) {
+    if (m.kind === "reasoning") continue;
+    const a = assessModel(m);
+    if (a.level !== "fit" || a.estimate.upper > state.ram * 0.45) continue;
+    if (!best || m.parameters > best.parameters) best = m;
+  }
+  return best ? best.id : null;
+}
 $("contextTokens").onchange = () => {
   prefs.context = Number($("contextTokens").value);
   savePrefs();
@@ -1117,7 +1152,10 @@ $("confirmYes").onclick = () => {
 function renderModels() {
   const root = $("models");
   root.replaceChildren();
-  const visible = visibleModels();
+  const recommendedId = recommendedModelId();
+  const visible = visibleModels().sort(
+    (x, y) => (y.id === recommendedId) - (x.id === recommendedId),
+  );
   $("catalogCount").textContent =
     state.models.length +
     " modelos · " +
@@ -1147,7 +1185,10 @@ function renderModels() {
       el("small", "", category + " · " + m.parameters + "B · " + m.quant),
     );
     top.append(icon, title);
-    card.append(top, el("p", "", m.description));
+    card.append(top);
+    if (m.id === recommendedId)
+      card.append(el("p", "recommended-badge", "★ Recomendado para tu teléfono"));
+    card.append(el("p", "", m.description));
     const info = el("details", "model-details");
     info.append(el("summary", "", "Memoria y compatibilidad"));
     const stats = el("div", "stats");

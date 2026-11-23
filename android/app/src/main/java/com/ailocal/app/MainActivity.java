@@ -29,6 +29,7 @@ public class MainActivity extends Activity {
   private volatile String active = "", token = "";
   private volatile int activeContext = 0;
   private String pickerSessionId = "";
+  private String exportContent = null, exportFormat = "";
   private volatile boolean busy = false;
   private volatile InferenceService inferenceService;
   private boolean bound, visible;
@@ -546,6 +547,30 @@ public class MainActivity extends Activity {
             });
         return;
       }
+      if (action.equals("export")) {
+        runOnUiThread(
+            () -> {
+              try {
+                JSONObject request = new JSONObject(payload);
+                String format = request.getString("format");
+                String content = request.getString("content");
+                if (content.trim().isEmpty()) throw new IllegalArgumentException("La respuesta está vacía.");
+                exportContent = content;
+                exportFormat = format;
+                startActivityForResult(
+                    new Intent(Intent.ACTION_CREATE_DOCUMENT)
+                        .setType(Exporter.mime(format))
+                        .addCategory(Intent.CATEGORY_OPENABLE)
+                        .putExtra(
+                            Intent.EXTRA_TITLE,
+                            Exporter.safeName(request.optString("title"), format)),
+                    12);
+              } catch (Exception e) {
+                event("error", "No se pudo preparar el archivo: " + e.getMessage());
+              }
+            });
+        return;
+      }
       if (action.equals("clearImage") || action.equals("clearImages")) {
         runOnUiThread(
             () -> {
@@ -753,6 +778,26 @@ public class MainActivity extends Activity {
   @Override
   protected void onActivityResult(int request, int result, Intent data) {
     super.onActivityResult(request, result, data);
+    if (request == 12) {
+      String content = exportContent, format = exportFormat;
+      exportContent = null;
+      exportFormat = "";
+      if (result != RESULT_OK || data == null || data.getData() == null || content == null) return;
+      Uri target = data.getData();
+      new Thread(
+              () -> {
+                try (OutputStream out = getContentResolver().openOutputStream(target, "wt")) {
+                  if (out == null) throw new IOException("No se pudo abrir el destino.");
+                  out.write(Exporter.export(content, format));
+                  event("notice", "Archivo ." + format + " guardado.");
+                } catch (Exception e) {
+                  event("error", "No se pudo guardar el archivo: " + e.getMessage());
+                }
+              },
+              "export")
+          .start();
+      return;
+    }
     if (request != 11) return;
     if (result != RESULT_OK || data == null) {
       if (inferenceService != null)
