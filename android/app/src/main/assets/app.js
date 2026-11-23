@@ -1114,7 +1114,7 @@ function visibleModels() {
   return state.models.filter(
     (m) =>
       (filter === "all" ||
-        (filter === "mobile" && m.parameters >= 3 && m.parameters <= 6) ||
+        (filter === "mobile" && m.parameters >= 2 && m.parameters <= 6) ||
         (filter === "powerful" && m.parameters >= 7) ||
         (filter === "code" && m.skills?.includes("code")) ||
         filter === m.kind ||
@@ -1165,8 +1165,8 @@ function renderModels() {
   $("catalogCount").textContent =
     state.models.length +
     " modelos · " +
-    state.models.filter((m) => m.parameters >= 3 && m.parameters <= 6).length +
-    " de 3–6B";
+    state.models.filter((m) => m.parameters >= 2 && m.parameters <= 6).length +
+    " de 2–6B";
   $("resultCount").textContent = visible.length + " modelos en esta vista";
   visible.forEach((m) => {
     const assessment = assessModel(m),
