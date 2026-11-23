@@ -496,6 +496,32 @@ $("removeWorkspace").onclick = () => {
   }
 };
 $("createToken").onclick = () => command("tokenHelp");
+// Reasoning models write their thoughts between <think> and </think>; keep them out of the answer.
+function splitThinking(text) {
+  const close = text.indexOf("</think>");
+  if (close >= 0)
+    return {
+      thinking: text.slice(0, close).replace(/^\s*<think>\s*/, "").trim(),
+      answer: text.slice(close + 8).replace(/^\s+/, ""),
+      open: false,
+    };
+  const head = text.trimStart();
+  if (head.startsWith("<think>"))
+    return { thinking: head.slice(7).trim(), answer: "", open: true };
+  if (head.length > 0 && head.length < 7 && "<think>".startsWith(head))
+    return { thinking: "", answer: "", open: true };
+  return { thinking: "", answer: text, open: false };
+}
+function streamText() {
+  const parts = splitThinking(answer);
+  if (parts.answer) return parts.answer;
+  return parts.open || parts.thinking ? "Pensando…" : answer || progressText();
+}
+function thinkingBlock(text) {
+  const box = el("details", "thinking");
+  box.append(el("summary", "", "Pensamiento"), el("div", "", text));
+  return box;
+}
 function messageContent(text) {
   const root = el("div", "message-text formatted");
   // Split fenced code without assigning model output to innerHTML.
@@ -562,7 +588,7 @@ function renderChat(streamOnly = false) {
   if (streamOnly && stream && running && operationKind === "chat") {
     const root = $("messages");
     const follow = root.scrollHeight - root.scrollTop - root.clientHeight < 100;
-    stream.textContent = answer || progressText();
+    stream.textContent = streamText();
     if (follow) root.scrollTop = root.scrollHeight;
     return;
   }
@@ -602,9 +628,15 @@ function renderChat(streamOnly = false) {
   } else {
     for (const m of messages) {
       if (m.role === "system" || m.hidden) continue;
+      if (m.role === "assistant" && /<\/think>|^\s*<think>/.test(m.content)) {
+        const parts = splitThinking(m.content);
+        m.thinking = parts.thinking;
+        m.content = parts.answer;
+      }
       const b = el("div", "bubble " + m.role);
+      b.append(el("small", "", m.role === "user" ? "Tú" : "Auren"));
+      if (m.role === "assistant" && m.thinking) b.append(thinkingBlock(m.thinking));
       b.append(
-        el("small", "", m.role === "user" ? "Tú" : "Auren"),
         m.role === "assistant"
           ? messageContent(m.content)
           : el("div", "message-text", m.content),
@@ -714,7 +746,7 @@ function renderChat(streamOnly = false) {
       const b = el("div", "bubble assistant");
       b.append(
         el("small", "", "Auren"),
-        el("div", "message-text streaming", answer || progressText()),
+        el("div", "message-text streaming", streamText()),
       );
       root.append(b);
     }
@@ -1596,17 +1628,19 @@ window.receive = (type, data) => {
     case "done":
       if (!running) break;
       if (operationKind === "chat") {
-        if (answer.trim()) {
+        const parts = splitThinking(answer);
+        if (parts.answer.trim()) {
           const hidden = messages.at(-1)?.hidden ? messages.at(-1) : null,
             before = hidden ? messages.at(-2) : null;
           if (hidden && before?.role === "assistant") {
             messages.pop();
-            before.content = mergeContinuation(before.content, answer);
+            before.content = mergeContinuation(before.content, parts.answer);
             before.finishReason = finishReason;
           } else {
             messages.push({
               role: "assistant",
-              content: answer,
+              content: parts.answer,
+              thinking: parts.thinking || undefined,
               finishReason,
               workspace: current.requestWorkspace,
             });
@@ -1620,7 +1654,9 @@ window.receive = (type, data) => {
             action: "chat",
             message: operationStopped
               ? "Respuesta detenida. Puedes reintentar el mensaje."
-              : "El modelo no devolvió texto. Reintenta el mensaje o vuelve a cargar el modelo.",
+              : parts.thinking
+                ? "El modelo agotó el límite pensando y no llegó a responder. Reintenta o sube el máximo de tokens en Ajustes."
+                : "El modelo no devolvió texto. Reintenta el mensaje o vuelve a cargar el modelo.",
           };
         }
         current.pending = false;

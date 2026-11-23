@@ -331,6 +331,23 @@ with sync_playwright() as p:
     assert not auto.locator('.continue-answer').count()
     assert auto.evaluate('calls.filter(c=>c[0]==="chat").length')==2
 
+    # Reasoning stays hidden (collapsed) and the composer has no focus rectangle.
+    think=browser.new_page(viewport={'width':390,'height':844})
+    think.add_init_script('window.calls=[];window.Native={command:(a,d)=>calls.push([a,JSON.parse(d)])};')
+    think.goto('http://127.0.0.1:8765');think.evaluate('(s)=>receive("state",s)',state)
+    think.locator('#prompt').focus()
+    assert think.evaluate('getComputedStyle(document.getElementById("prompt")).borderTopWidth')=='0px'
+    assert think.evaluate('getComputedStyle(document.getElementById("prompt")).boxShadow')=='none'
+    think.locator('#prompt').fill('Hola');think.locator('#send').click()
+    think.evaluate('receive("answer","<think>razonando en secreto")')
+    assert think.locator('.streaming').inner_text()=='Pensando…'
+    think.evaluate('receive("metrics",{finishReason:"stop",context:2048,tps:1,stopped:false})')
+    deliver(think, '<think>\nrazonando en secreto\n</think>\n\nRespuesta final.')
+    assert think.locator('.bubble.assistant .message-text').inner_text()=='Respuesta final.'
+    assert 'razonando' not in think.locator('.bubble.assistant').inner_text()
+    assert think.locator('.thinking summary').inner_text()=='Pensamiento'
+    assert think.evaluate('messages.at(-1).content')=='Respuesta final.'
+
     # GitHub onboarding is an actual app action, available before loading a model.
     git=browser.new_page(viewport={'width':390,'height':844})
     git.add_init_script('window.calls=[];window.Native={command:(a,d)=>calls.push([a,JSON.parse(d)])};')
