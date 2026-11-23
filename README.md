@@ -1,6 +1,6 @@
-# Auren · Android 2.7.1
+# Auren · Android 2.8.1
 
-Auren es el nuevo nombre de AI Local. Mantiene `com.ailocal.app`, la firma de actualización, los modelos descargados, el historial y los ajustes. Su icono es un monograma A blanco sobre negro, con una identidad minimalista. Incluye recursos adaptativos y una variante monocroma para iconos temáticos y notificaciones.
+Auren es el nuevo nombre de AI Local. Mantiene `com.ailocal.app`, la firma de actualización, los modelos descargados, el historial y los ajustes. Su icono es el emblema elegido por el usuario: tres formas curvas en coral, naranja y dorado sobre fondo espresso, sin letras y centrado en el área segura del launcher. Incluye recursos adaptativos y una variante monocroma para iconos temáticos y notificaciones.
 
 Asistente Android con inferencia **dentro de la aplicación**, sin Termux, Python, Ollama ni servidores. La nueva app nativa se encuentra en `android/`; el prototipo Python se conserva para escritorio.
 
