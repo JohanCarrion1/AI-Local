@@ -58,6 +58,9 @@ public class MainActivity extends Activity {
         }
       };
   private boolean destroyed = false;
+  private boolean rendererLost = false;
+  // Static so a crash loop is still detected across the recreated Activity instance.
+  private static long lastRendererRecovery = -1;
   private String interruptedLoad = "";
   private final Handler handler = new Handler(Looper.getMainLooper());
   private long lastResourceRefresh = 0;
@@ -154,6 +157,20 @@ public class MainActivity extends Activity {
 
           @Override
           public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest r) {
+            return true;
+          }
+
+          @Override
+          public boolean onRenderProcessGone(WebView v, RenderProcessGoneDetail detail) {
+            // The WebView renderer is a separate process that Android reclaims first when RAM
+            // is tight, which a multi-GB model makes likely while the app is in the background.
+            // Returning false would crash this whole process, taking the loaded model and the
+            // response in progress with it. The inference service lives in this process, so
+            // only the UI is rebuilt and then reattaches to the running job.
+            android.util.Log.w("Auren", "WebView renderer gone; crashed=" + detail.didCrash());
+            if (destroyed) return true;
+            rendererLost = true;
+            if (visible) handler.post(MainActivity.this::recoverWebView);
             return true;
           }
 
@@ -863,6 +880,19 @@ public class MainActivity extends Activity {
         });
   }
 
+  /** Rebuilds the UI after the WebView renderer was killed; the model and any job keep running. */
+  private void recoverWebView() {
+    if (destroyed || !rendererLost) return;
+    rendererLost = false;
+    long now = SystemClock.elapsedRealtime();
+    boolean looping = lastRendererRecovery >= 0 && now - lastRendererRecovery < 10000;
+    lastRendererRecovery = now;
+    // A second loss right after recovering means recreating will not help: leave the
+    // service running and let the next launch start from a clean WebView.
+    if (looping) finish();
+    else recreate();
+  }
+
   @Override
   protected void onResume() {
     super.onResume();
@@ -880,6 +910,7 @@ public class MainActivity extends Activity {
   protected void onStart() {
     super.onStart();
     visible = true;
+    if (rendererLost) handler.post(this::recoverWebView);
     handler.post(ticker);
     if (inferenceService != null) inferenceService.listen(inferenceListener);
   }

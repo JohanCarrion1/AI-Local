@@ -105,7 +105,7 @@ public class InferenceService extends Service {
       job = new JSONObject(new String(journal.readFully(), StandardCharsets.UTF_8));
       if ("running".equals(job.optString("status"))) {
         set("status", "interrupted");
-        set("error", "Android interrumpió la ejecución anterior. Puedes reintentar tu mensaje.");
+        set("error", interruptionMessage());
       }
     } catch (Exception ignored) {
       job = new JSONObject();
@@ -126,6 +126,35 @@ public class InferenceService extends Service {
         ((PowerManager) getSystemService(POWER_SERVICE))
             .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "AI-Local:inference");
     wake.setReferenceCounted(false);
+  }
+
+  /** Says why the previous process ended mid-job, when Android reports it (API 30+). */
+  private String interruptionMessage() {
+    String generic = "Android interrumpió la ejecución anterior. Puedes reintentar tu mensaje.";
+    if (Build.VERSION.SDK_INT < 30) return generic;
+    try {
+      java.util.List<ApplicationExitInfo> exits =
+          getSystemService(ActivityManager.class)
+              .getHistoricalProcessExitReasons(getPackageName(), 0, 1);
+      if (exits.isEmpty()) return generic;
+      switch (exits.get(0).getReason()) {
+        case ApplicationExitInfo.REASON_LOW_MEMORY:
+          return "Android cerró Auren por memoria baja mientras respondía. Cierra otras apps o"
+              + " usa un modelo más pequeño y reintenta tu mensaje.";
+        case ApplicationExitInfo.REASON_CRASH:
+        case ApplicationExitInfo.REASON_CRASH_NATIVE:
+          return "Auren se cerró por un error interno mientras respondía. Puedes reintentar tu"
+              + " mensaje.";
+        case ApplicationExitInfo.REASON_USER_REQUESTED:
+        case ApplicationExitInfo.REASON_USER_STOPPED:
+          return "La app se cerró desde Recientes o Ajustes mientras respondía. Puedes reintentar"
+              + " tu mensaje.";
+        default:
+          return generic;
+      }
+    } catch (RuntimeException e) {
+      return generic;
+    }
   }
 
   @Override
