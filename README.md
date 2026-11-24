@@ -1,16 +1,16 @@
-# Auren · Android 2.9.1
+# Auren · Android 2.9.2
 
 Auren es el nuevo nombre de AI Local. Mantiene `com.ailocal.app`, la firma de actualización, los modelos descargados, el historial y los ajustes. Su icono conserva el diseño elegido: tres formas curvas en coral, naranja y dorado, centradas sobre fondo espresso. Incluye recursos adaptativos y una variante monocroma para iconos temáticos y notificaciones.
 
-Asistente Android con inferencia **dentro de la aplicación**, sin Termux, Python, Ollama ni servidores. La nueva app nativa se encuentra en `android/`; el prototipo Python se conserva para escritorio.
+Asistente Android con inferencia **dentro de la aplicación**, sin Termux, Python, Ollama ni servidores. La nueva app nativa se encuentra en `android/`; el antiguo prototipo Python de escritorio se eliminó del repositorio.
 
 ## Instalar
 
-**[Descargar Auren-2.9.1.apk directamente](https://github.com/JohanCarrion1/AI-Local/releases/download/v2.9.1/Auren-2.9.1.apk)**
+**[Descargar Auren-2.9.2.apk directamente](https://github.com/JohanCarrion1/AI-Local/releases/download/v2.9.2/Auren-2.9.2.apk)**
 
-Abre ese archivo `.apk` en un teléfono **Android 8+ de 64 bits (ARM64)** e instálalo sobre la versión anterior. No hace falta descomprimirlo. Android debe identificarlo como **Auren 2.9.1**.
+Abre ese archivo `.apk` en un teléfono **Android 8+ de 64 bits (ARM64)** e instálalo sobre la versión anterior. No hace falta descomprimirlo. Android debe identificarlo como **Auren 2.9.2**.
 
-El antiguo `ai-local-hub-package.zip` contiene el proyecto Python de escritorio y no se instala en Android. El flujo de escritorio se retiró de Actions para evitar descargas equivocadas. Para otras ramas de la app Android, usa **Actions → Android APK Build → Auren-VERSIÓN-Android-APK** y extrae el archivo Auren-VERSIÓN.apk de ese artefacto.
+El antiguo `ai-local-hub-package.zip` era el proyecto Python de escritorio y no se instala en Android; ya no forma parte del repositorio.
 
 Desde 2.1 se usa una clave debug pública y estable para que las siguientes actualizaciones mantengan la firma. Las versiones 2.0 anteriores usaban claves generadas en cada runner: Android puede exigir desinstalarlas antes de instalar 2.1, lo que elimina sus datos y modelos locales. Una publicación de producción debe usar una clave privada diferente. El paquete es `com.ailocal.app`; no reemplaza automáticamente el antiguo prototipo Kivy.
 
@@ -147,7 +147,7 @@ La prueba Android también vuelve a Inicio durante la generación, espera su fin
 - Crear una rama de prueba en GitHub, editar un archivo y verificar el commit; modificar el mismo archivo remotamente para comprobar el rechazo de SHA obsoleto.
 - Probar 3B/7B solo con memoria suficiente y observar consumo/temperatura.
 
-La identidad gráfica se documenta en `android/branding/README.md`. Los archivos Python y su CI heredado siguen siendo independientes del APK.
+La identidad gráfica se documenta en `android/branding/README.md`.
 
 La regresión visual de 2.6 usa el selector Android real con respuestas interceptadas de MediaStore: miniatura, recreación de Activity, envío al servicio y JNI, dos imágenes con píxeles distintos y reutilización de la misma foto en una pregunta posterior. En 2.7 la matriz ARM64 usa **los modelos móviles completos**: Qwen2.5‑VL 3B, Qwen3‑VL 4B y MiniCPM‑V 4. Exige respuestas diferentes a objetos rojos/azules sin dar colores en el prompt, además de comprobar la caché visual. Otro caso genera código Python con Qwen3 Instruct 2507 4B y valida su sintaxis y comportamiento como función pura. Las fixtures pequeñas del emulador son exclusivamente pruebas de integración y no sustituyen los modelos elegidos por el usuario. Los tiempos del runner no constituyen una medición del Samsung SM-A366E.
 
@@ -168,3 +168,15 @@ El límite por respuesta sube a 2048 tokens por defecto (hasta 4096) y el contex
 ## Cambios integrados en la compilación 2.9
 
 Se reúne el catálogo ampliado, los modelos ligeros y las variantes comunitarias, la recomendación según los recursos del teléfono, la exportación de respuestas a PDF/DOCX/Markdown/HTML/TXT, la continuación automática de respuestas y la vista plegada del razonamiento. El icono conserva el diseño coral, naranja y dorado elegido por el usuario.
+
+## Compilación y publicación
+
+Un solo flujo, `.github/workflows/android.yml`, hace todo. Cada cambio en `main` compila el APK, ejecuta las pruebas de interfaz y publica ese mismo APK como Release (`Auren-<versión>.apk`). En ramas y compilaciones manuales solo se guarda el APK como artefacto; las pruebas pesadas de emulador y ARM64 corren en los pull requests. Ya no hay un segundo flujo de publicación.
+
+## Pensar antes de responder
+
+En Ajustes hay un interruptor. Apagado (por defecto), los Qwen3 híbridos reciben el bloque de razonamiento ya cerrado y responden directo, mucho más rápido. Encendido, razonan primero y el razonamiento aparece en un desplegable "Pensamiento". La velocidad (tokens por segundo) se muestra bajo cada respuesta.
+
+## Archivos de código desde cualquier modelo
+
+Cada bloque de código de una respuesta tiene su botón "Guardar nombre.ext" (por ejemplo `Guardar admin_store.py` o `Guardar index.html`). El nombre sale del archivo que el modelo menciona entre comillas invertidas o, si no lo menciona, del lenguaje del bloque; el texto se guarda tal cual, con la extensión correcta. Auren le indica a todos los modelos que entreguen los archivos así. "Guardar como…" sigue disponible para exportar la respuesta completa como .pdf, .docx, .md, .html o .txt.

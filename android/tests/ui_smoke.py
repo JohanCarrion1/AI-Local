@@ -356,6 +356,31 @@ with sync_playwright() as p:
     assert think.locator('.thinking summary').inner_text()=='Pensamiento'
     assert think.evaluate('messages.at(-1).content')=='Respuesta final.'
 
+    # The thinking switch is sent to the engine.
+    sw=browser.new_page(viewport={'width':390,'height':844})
+    sw.add_init_script('window.calls=[];window.Native={command:(a,d)=>calls.push([a,JSON.parse(d)])};')
+    sw.goto('http://127.0.0.1:8765');sw.evaluate('(s)=>receive("state",s)',state)
+    assert sw.evaluate('prefs.thinking')==False
+    sw.evaluate('()=>{$("thinking").checked=true;$("thinking").onchange()}')
+    sw.locator('#prompt').fill('Hola');sw.locator('#send').click()
+    sw.wait_for_function('calls.some(c=>c[0]==="chat")')
+    assert sw.evaluate('calls.find(c=>c[0]==="chat")[1].thinking')==True
+
+    # Any model can hand over real files: each code block becomes a saveable file with its extension.
+    files=browser.new_page(viewport={'width':390,'height':844})
+    files.add_init_script('window.calls=[];window.Native={command:(a,d)=>calls.push([a,JSON.parse(d)])};')
+    files.goto('http://127.0.0.1:8765');files.evaluate('(s)=>receive("state",s)',state)
+    reply='Aqui tienes `admin_store.py`:\n\n```python\nclass A:\n    pass\nprint(1)\n```\n\nY la web:\n\n```html\n<!DOCTYPE html>\n<h1>Hola</h1>\n<p>x</p>\n```\n\n```bash\npip install x\n```\n'
+    got=files.evaluate('(t)=>codeFiles(t).map(f=>[f.name,f.mime])',reply)
+    assert got==[['admin_store.py','application/octet-stream'],['index.html','text/html']],got
+    files.locator('#prompt').fill('Hazme una tienda');files.locator('#send').click()
+    files.evaluate('receive("metrics",{finishReason:"stop",context:2048,tps:1,stopped:false})')
+    deliver(files, reply)
+    files.get_by_text('Guardar admin_store.py').click()
+    sent=files.evaluate('calls.filter(c=>c[0]==="export").at(-1)[1]')
+    assert sent['format']=='raw' and sent['title']=='admin_store.py' and sent['content'].startswith('class A:') and 'pip install' not in sent['content'], sent
+    assert files.get_by_text('Guardar index.html').count()==1
+
     # GitHub onboarding is an actual app action, available before loading a model.
     git=browser.new_page(viewport={'width':390,'height':844})
     git.add_init_script('window.calls=[];window.Native={command:(a,d)=>calls.push([a,JSON.parse(d)])};')

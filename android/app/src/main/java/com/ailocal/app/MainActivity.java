@@ -581,11 +581,16 @@ public class MainActivity extends Activity {
                 exportFormat = format;
                 startActivityForResult(
                     new Intent(Intent.ACTION_CREATE_DOCUMENT)
-                        .setType(Exporter.mime(format))
+                        .setType(
+                            format.equals("raw")
+                                ? Exporter.safeMime(request.optString("mime"))
+                                : Exporter.mime(format))
                         .addCategory(Intent.CATEGORY_OPENABLE)
                         .putExtra(
                             Intent.EXTRA_TITLE,
-                            Exporter.safeName(request.optString("title"), format)),
+                            format.equals("raw")
+                                ? Exporter.fileName(request.optString("title"))
+                                : Exporter.safeName(request.optString("title"), format)),
                     12);
               } catch (Exception e) {
                 event("error", "No se pudo preparar el archivo: " + e.getMessage());
@@ -811,7 +816,7 @@ public class MainActivity extends Activity {
                 try (OutputStream out = getContentResolver().openOutputStream(target, "wt")) {
                   if (out == null) throw new IOException("No se pudo abrir el destino.");
                   out.write(Exporter.export(content, format));
-                  event("notice", "Archivo ." + format + " guardado.");
+                  event("notice", "Archivo guardado.");
                 } catch (Exception e) {
                   event("error", "No se pudo guardar el archivo: " + e.getMessage());
                 }

@@ -116,6 +116,18 @@ public class ExporterTest {
         Exporter.safeName(new String(new char[200]).replace('\0', 'x'), "txt").length() <= 64);
   }
 
+  @Test
+  public void rawFilesKeepTheirExactContentAndModelChosenName() throws Exception {
+    String code = "class A:\n    pass\n\nprint('ñ')\n";
+    assertEquals(code, text(Exporter.export(code, "raw")));
+    assertEquals("admin_store.py", Exporter.fileName("admin_store.py"));
+    assertEquals("a_b.py", Exporter.fileName("a/b.py"));
+    assertEquals("passwd", Exporter.fileName("../../.passwd".replace("../", "").replace(".", "")));
+    assertEquals("archivo.txt", Exporter.fileName("  "));
+    assertEquals("text/html", Exporter.safeMime("text/html"));
+    assertEquals("application/octet-stream", Exporter.safeMime("x; rm -rf"));
+  }
+
   @Test(expected = IllegalArgumentException.class)
   public void unknownFormatIsRejected() throws Exception {
     Exporter.export("x", "exe");

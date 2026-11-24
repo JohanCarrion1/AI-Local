@@ -23,6 +23,7 @@ static llama_model * model = nullptr;
 static llama_context * ctx = nullptr;
 static mtmd_context * vision = nullptr;
 static std::atomic<bool> cancelled{false};
+static std::string generation_prefix;
 static int generated_tokens = 0;
 static std::string finish_reason = "";
 static int context_shifts = 0, trimmed_tokens = 0;
@@ -91,6 +92,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_ailocal_app_Engine_configureBackends(
     if(!ggml_backend_reg_by_name("CPU")) fail(e,"Falta el backend CPU en el APK. Reinstala la actualización completa.");
 }
 extern "C" JNIEXPORT void JNICALL Java_com_ailocal_app_Engine_stop(JNIEnv *,jclass) { cancelled=true; }
+extern "C" JNIEXPORT void JNICALL Java_com_ailocal_app_Engine_setGenerationPrefix(JNIEnv * e,jclass,jstring prefix) { generation_prefix=prefix?str(e,prefix):std::string(); }
 extern "C" JNIEXPORT void JNICALL Java_com_ailocal_app_Engine_unload(JNIEnv *,jclass) {
     if(vision) mtmd_free(vision); if(ctx) llama_free(ctx);
     if(threadpool && free_pool) free_pool(threadpool); threadpool=nullptr;
@@ -192,6 +194,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_ailocal_app_Engine_generateImage(JNIE
         if(n<0) { fail(e,"Plantilla de chat incompatible con el motor."); return false; }
         formatted.resize(n+1);
         llama_chat_apply_template(tmpl,messages.data(),messages.size(),true,formatted.data(),formatted.size());
+        if(!generation_prefix.empty()) { std::string full(formatted.data(),n); full+=generation_prefix; formatted.assign(full.begin(),full.end()); formatted.push_back(0); n=(int)full.size(); }
         return true;
     };
     if(!format_chat()) return;

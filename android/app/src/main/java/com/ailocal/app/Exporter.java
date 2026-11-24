@@ -17,6 +17,8 @@ final class Exporter {
 
   static String mime(String format) {
     switch (format) {
+      case "raw":
+        return "application/octet-stream";
       case "md":
         return "text/markdown";
       case "txt":
@@ -32,6 +34,18 @@ final class Exporter {
     }
   }
 
+  /** Name for a raw file such as admin_store.py; keeps the extension the model chose. */
+  static String fileName(String name) {
+    String base = name == null ? "" : name.replaceAll("[\\\\/:*?\"<>|\\p{Cntrl}]", "_").trim();
+    base = base.replaceAll("^\\.+", "");
+    if (base.length() > 80) base = base.substring(base.length() - 80);
+    return base.isEmpty() ? "archivo.txt" : base;
+  }
+
+  static String safeMime(String mime) {
+    return mime != null && mime.matches("[a-z]+/[a-z0-9.+-]+") ? mime : "application/octet-stream";
+  }
+
   static String safeName(String title, String format) {
     String base = title == null ? "" : title.replaceAll("[\\\\/:*?\"<>|\\p{Cntrl}]", " ").trim();
     base = base.replaceAll("\\s+", " ");
@@ -43,8 +57,9 @@ final class Exporter {
   static byte[] export(String markdown, String format) throws IOException {
     String text = markdown == null ? "" : markdown.replace("\r\n", "\n");
     switch (format) {
+      case "raw":
       case "md":
-        return text.getBytes(StandardCharsets.UTF_8);
+        return (format.equals("raw") ? markdown : text).getBytes(StandardCharsets.UTF_8);
       case "txt":
         return plain(text).getBytes(StandardCharsets.UTF_8);
       case "html":

@@ -76,5 +76,8 @@ final class Engine {
 
   static native void stop();
 
+  /** Text appended after the chat template, e.g. a closed think block to skip reasoning. */
+  static native void setGenerationPrefix(String prefix);
+
   static native void unload();
 }

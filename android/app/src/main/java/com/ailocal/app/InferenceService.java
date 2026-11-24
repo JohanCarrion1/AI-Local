@@ -587,13 +587,17 @@ public class InferenceService extends Service {
       if (!imageId.isEmpty() && imageId.equals(history.getJSONObject(i).optString("imageId")))
         imageIndex = i;
     }
-    if (request.optString("responseStyle", "direct").equals("direct")
-        && ModelStore.find(models, active).optString("kind").equals("reasoning")
-        && ModelStore.find(models, active)
-            .optString("repo")
-            .toLowerCase(java.util.Locale.ROOT)
-            .contains("qwen3"))
-      for (int i = 0; i < texts.length; i++) if (roles[i].equals("user")) texts[i] += "\n/no_think";
+    // Hybrid Qwen3 models reason first unless the think block is already closed in the prompt.
+    String modelRepo =
+        ModelStore.find(models, active).optString("repo").toLowerCase(java.util.Locale.ROOT);
+    boolean hybridQwen3 =
+        modelRepo.contains("qwen3")
+            && !modelRepo.contains("2507")
+            && !modelRepo.contains("-vl")
+            && !modelRepo.contains("coder")
+            && !modelRepo.contains("thinking");
+    Engine.setGenerationPrefix(
+        hybridQwen3 && !request.optBoolean("thinking", false) ? "<think>\n\n</think>\n\n" : "");
     if (!imageId.isEmpty()) {
       if (!ModelStore.find(models, active).getBoolean("vision"))
         throw new IOException("Selecciona un modelo de visión para enviar esta foto.");
