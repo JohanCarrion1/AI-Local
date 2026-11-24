@@ -497,6 +497,45 @@ $("removeWorkspace").onclick = () => {
   }
 };
 $("createToken").onclick = () => command("tokenHelp");
+const CODE_TYPES = {
+  python: "py", py: "py", html: "html", css: "css", javascript: "js", js: "js", node: "js",
+  typescript: "ts", ts: "ts", json: "json", java: "java", kotlin: "kt", kt: "kt", c: "c",
+  cpp: "cpp", "c++": "cpp", csharp: "cs", cs: "cs", "c#": "cs", go: "go", rust: "rs", rs: "rs",
+  php: "php", ruby: "rb", rb: "rb", bash: "sh", sh: "sh", shell: "sh", zsh: "sh", sql: "sql",
+  xml: "xml", yaml: "yml", yml: "yml", markdown: "md", md: "md", powershell: "ps1", ps1: "ps1",
+  bat: "bat", batch: "bat", swift: "swift", dart: "dart", lua: "lua", r: "r", txt: "txt", text: "txt",
+};
+const CODE_MIME = {
+  html: "text/html", css: "text/css", json: "application/json", xml: "text/xml",
+  md: "text/markdown", txt: "text/plain",
+};
+// Finds the files an answer contains: every fenced code block, named after the `file.ext`
+// the model mentioned or after its language, so any model can hand over a real .py/.html/etc.
+function codeFiles(text) {
+  const names = [],
+    prose = text.replace(/^```[\s\S]*?^```/gm, "");
+  for (const m of prose.matchAll(/`([\w][\w.-]*\.[A-Za-z0-9]{1,5})`/g)) names.push(m[1]);
+  const used = new Set(),
+    files = [],
+    counts = {};
+  for (const block of text.matchAll(/^```([^\n`]*)\n([\s\S]*?)^```/gm)) {
+    const lang = block[1].trim().toLowerCase().split(/\s+/)[0],
+      code = block[2].replace(/\n$/, "");
+    let ext = CODE_TYPES[lang];
+    if (!ext && /^\s*<(!doctype html|html)/i.test(code)) ext = "html";
+    const named = names.find((n) => !used.has(n) && (!ext || n.toLowerCase().endsWith("." + ext)));
+    if (named && !ext) ext = named.split(".").pop().toLowerCase();
+    if (!ext || (!named && code.split("\n").length < 3) || !code.trim()) continue;
+    let name = named;
+    if (name) used.add(name);
+    else {
+      counts[ext] = (counts[ext] || 0) + 1;
+      name = (ext === "html" ? "index" : "codigo") + (counts[ext] > 1 ? "-" + counts[ext] : "") + "." + ext;
+    }
+    files.push({ name, code, mime: CODE_MIME[ext] || "application/octet-stream" });
+  }
+  return files;
+}
 // Reasoning models write their thoughts between <think> and </think>; keep them out of the answer.
 function splitThinking(text) {
   const close = text.indexOf("</think>");
@@ -673,6 +712,17 @@ function renderChat(streamOnly = false) {
           }
         };
         actions.append(copy);
+        for (const file of codeFiles(m.content).slice(0, 4)) {
+          const button = el("button", "quiet", "Guardar " + file.name);
+          button.onclick = () =>
+            command("export", {
+              format: "raw",
+              content: file.code,
+              title: file.name,
+              mime: file.mime,
+            });
+          actions.append(button);
+        }
         if (
           m === messages.at(-1) &&
           ["length", "context"].includes(m.finishReason)

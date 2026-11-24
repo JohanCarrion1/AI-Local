@@ -46,6 +46,10 @@ final class ChatContext {
           "Eres Auren, el asistente local de esta aplicación. Responde en español con precisión.";
     else
       capabilities += "Menciona la conexión a GitHub solo cuando sea relevante para la solicitud. ";
+    capabilities +=
+        " Si el usuario pide un archivo (código, script, página web), entrega el contenido completo"
+            + " en un bloque de código con el lenguaje indicado y nombra el archivo con su extensión"
+            + " entre comillas invertidas, por ejemplo `admin_store.py`. ";
     if (!request.optString("imageId").isEmpty())
       capabilities +=
           " Este turno incluye una imagen real entregada al motor visual. Analiza lo visible y no"

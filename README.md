@@ -176,3 +176,7 @@ Un solo flujo, `.github/workflows/android.yml`, hace todo. Cada cambio en `main`
 ## Pensar antes de responder
 
 En Ajustes hay un interruptor. Apagado (por defecto), los Qwen3 híbridos reciben el bloque de razonamiento ya cerrado y responden directo, mucho más rápido. Encendido, razonan primero y el razonamiento aparece en un desplegable "Pensamiento". La velocidad (tokens por segundo) se muestra bajo cada respuesta.
+
+## Archivos de código desde cualquier modelo
+
+Cada bloque de código de una respuesta tiene su botón "Guardar nombre.ext" (por ejemplo `Guardar admin_store.py` o `Guardar index.html`). El nombre sale del archivo que el modelo menciona entre comillas invertidas o, si no lo menciona, del lenguaje del bloque; el texto se guarda tal cual, con la extensión correcta. Auren le indica a todos los modelos que entreguen los archivos así. "Guardar como…" sigue disponible para exportar la respuesta completa como .pdf, .docx, .md, .html o .txt.
